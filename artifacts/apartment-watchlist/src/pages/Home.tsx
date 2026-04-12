@@ -18,11 +18,11 @@ import {
   MapPin,
   ArrowDown,
   ArrowUp,
-  FileText,
   Trash2,
   Copy,
   Check,
   Pencil,
+  ExternalLink,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
@@ -388,7 +388,7 @@ export default function Home() {
                 <TableHead className="w-24">Taxes</TableHead>
                 <TableHead className="w-20">Interest</TableHead>
                 <TableHead className="w-28 text-right">Last Checked</TableHead>
-                <TableHead className="w-16 text-center">Notes</TableHead>
+                <TableHead className="w-44">Notes / Tags</TableHead>
                 <TableHead className="w-10"></TableHead>
               </TableRow>
             </TableHeader>
@@ -451,12 +451,24 @@ export default function Home() {
 
                     {/* Address */}
                     <TableCell className="font-medium">
-                      <div className="flex items-start gap-1">
-                        <span className="truncate max-w-[220px]" title={listing.address || listing.title || listing.listingUrl}>
+                      <div className="flex items-center gap-1">
+                        <span className="truncate max-w-[200px]" title={listing.address || listing.title || listing.listingUrl}>
                           {listing.address || listing.title || listing.listingUrl}
                         </span>
                         {(listing.address || listing.title) && (
                           <CopyText text={listing.address || listing.title || ""} />
+                        )}
+                        {listing.listingUrl && (
+                          <a
+                            href={listing.listingUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex text-muted-foreground hover:text-primary transition-colors flex-shrink-0"
+                            title="Open original listing"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
                         )}
                       </div>
                       {listing.neighborhood && (
@@ -536,22 +548,39 @@ export default function Home() {
                     </TableCell>
 
                     {/* Notes popup */}
-                    <TableCell className="text-center">
-                      <NotesPopover
-                        listingId={listing.id}
-                        notes={listing.notes}
-                        tags={listing.tags}
-                        interestLevel={listing.interestLevel}
-                        isPending={updateListing.isPending}
-                        onSave={(data) => updateListing.mutate({
-                          id: listing.id,
-                          data: {
-                            notes: data.notes || null,
-                            tags: data.tags || null,
-                            interestLevel: data.interestLevel === "none" ? null : data.interestLevel || null,
-                          }
-                        })}
-                      />
+                    <TableCell>
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <div className="min-w-0 flex-1">
+                          {listing.notes && (
+                            <p className="text-[10px] text-muted-foreground truncate max-w-[120px]" title={listing.notes}>
+                              {listing.notes}
+                            </p>
+                          )}
+                          {listing.tags && (
+                            <p className="text-[10px] text-muted-foreground truncate max-w-[120px]" title={listing.tags}>
+                              #{listing.tags.split(",").map(t => t.trim()).join(" #")}
+                            </p>
+                          )}
+                          {!listing.notes && !listing.tags && (
+                            <span className="text-[10px] text-muted-foreground/40 italic">Add notes...</span>
+                          )}
+                        </div>
+                        <NotesPopover
+                          listingId={listing.id}
+                          notes={listing.notes}
+                          tags={listing.tags}
+                          interestLevel={listing.interestLevel}
+                          isPending={updateListing.isPending}
+                          onSave={(data) => updateListing.mutate({
+                            id: listing.id,
+                            data: {
+                              notes: data.notes || null,
+                              tags: data.tags || null,
+                              interestLevel: data.interestLevel === "none" ? null : data.interestLevel || null,
+                            }
+                          })}
+                        />
+                      </div>
                     </TableCell>
 
                     {/* Delete */}
