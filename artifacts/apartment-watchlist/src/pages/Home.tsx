@@ -156,6 +156,7 @@ export default function Home() {
   const [parkingInfo, setParkingInfo] = useState<string>("all");
   const [sortBy, setSortBy] = useState("updatedAt");
   const [sortDir, setSortDir] = useState("desc");
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -211,6 +212,25 @@ export default function Home() {
     }
   });
 
+  const bulkDelete = useMutation({
+    mutationFn: async (ids: number[]) => {
+      const res = await fetch("/api/listings/bulk-delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+      });
+      if (!res.ok) throw new Error("Bulk delete failed");
+      return res.json() as Promise<{ deleted: number }>;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: getGetListingsQueryKey() });
+      queryClient.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
+      setSelectedIds(new Set());
+      toast({ title: `Deleted ${data.deleted} listing${data.deleted !== 1 ? "s" : ""}` });
+    },
+    onError: () => toast({ title: "Bulk delete failed", variant: "destructive" }),
+  });
+
   const fmt = (val: string | null | undefined, suffix = "") =>
     val ? `${val}${suffix}` : "—";
 
@@ -230,6 +250,18 @@ export default function Home() {
             />
           </div>
           <div className="flex items-center gap-2 flex-wrap">
+            {selectedIds.size > 0 && (
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => bulkDelete.mutate(Array.from(selectedIds))}
+                disabled={bulkDelete.isPending}
+                data-testid="btn-bulk-delete"
+              >
+                <Trash2 className="w-4 h-4 mr-1.5" />
+                Delete {selectedIds.size}
+              </Button>
+            )}
             <AddListingDialog />
             <Button 
               variant="outline" 
@@ -331,6 +363,15 @@ export default function Home() {
           <Table className="text-xs min-w-[1400px]">
             <TableHeader className="bg-muted/50 sticky top-0">
               <TableRow>
+                <TableHead className="w-8 px-2">
+                  <Checkbox
+                    checked={listings?.length ? selectedIds.size === listings.length : false}
+                    onCheckedChange={(checked) => {
+                      setSelectedIds(checked ? new Set((listings ?? []).map((listing) => listing.id)) : new Set());
+                    }}
+                    aria-label="Select all"
+                  />
+                </TableHead>
                 <TableHead className="min-w-[200px]">Address</TableHead>
                 <TableHead className="w-24">Price</TableHead>
                 <TableHead className="w-28">Specs</TableHead>
@@ -351,14 +392,14 @@ export default function Home() {
               {isLoadingListings ? (
                 Array.from({ length: 4 }).map((_, i) => (
                   <TableRow key={i}>
-                    {Array.from({ length: 12 }).map((_, j) => (
+                    {Array.from({ length: 13 }).map((_, j) => (
                       <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>
                     ))}
                   </TableRow>
                 ))
               ) : listings?.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={12} className="h-40 text-center text-muted-foreground">
+                  <TableCell colSpan={13} className="h-40 text-center text-muted-foreground">
                     <div className="flex flex-col items-center justify-center space-y-2">
                       <MapPin className="w-8 h-8 text-muted" />
                       <p>No listings found.</p>
@@ -378,6 +419,21 @@ export default function Home() {
                     className="group"
                     data-testid={`row-listing-${listing.id}`}
                   >
+                    <TableCell className="px-2">
+                      <Checkbox
+                        checked={selectedIds.has(listing.id)}
+                        onCheckedChange={(checked) => {
+                          setSelectedIds((prev) => {
+                            const next = new Set(prev);
+                            if (checked) next.add(listing.id);
+                            else next.delete(listing.id);
+                            return next;
+                          });
+                        }}
+                        aria-label={`Select ${listing.id}`}
+                      />
+                    </TableCell>
+
                     {/* Address */}
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-1">
