@@ -19,7 +19,7 @@ import {
   Trash2,
   Copy,
   Check,
-  Pencil,
+  StickyNote,
   ExternalLink,
   Clock3,
 } from "lucide-react";
@@ -107,14 +107,14 @@ function NotesPopover({ listingId, notes, interestLevel, onSave, isPending }: No
           variant="ghost"
           size="icon"
           className="h-7 w-7 text-muted-foreground"
-          title="Edit notes, tags & interest"
+          title="View notes"
           data-testid={`btn-notes-${listingId}`}
         >
-          <Pencil className="w-3.5 h-3.5" />
+          <StickyNote className="w-3.5 h-3.5" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-72 p-4 space-y-3" align="end">
-        <p className="text-sm font-semibold">Notes & Tags</p>
+          <p className="text-sm font-semibold">Notes</p>
         <div className="space-y-1">
           <Label className="text-xs text-muted-foreground">Interest</Label>
           <Select value={localInterest} onValueChange={setLocalInterest}>
@@ -252,10 +252,8 @@ export default function Home() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Statuses</SelectItem>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="sold">Sold</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="unavailable">Unavailable</SelectItem>
+              <SelectItem value="active">ACTIVE</SelectItem>
+              <SelectItem value="inactive">INACTIVE</SelectItem>
             </SelectContent>
           </Select>
 
@@ -340,6 +338,7 @@ export default function Home() {
                 <TableHead className="w-20">Status</TableHead>
                 <TableHead className="w-28">Condo Type</TableHead>
                 <TableHead className="w-32">Borough</TableHead>
+                <TableHead className="w-20">Interest</TableHead>
                 <TableHead className="w-32">Parking</TableHead>
                 <TableHead className="w-24">Condo Fees</TableHead>
                 <TableHead className="w-24">Taxes</TableHead>
@@ -441,6 +440,19 @@ export default function Home() {
 
                     {/* Borough */}
                     <TableCell className="text-muted-foreground">{fmt(listing.neighborhood)}</TableCell>
+
+                    {/* Interest */}
+                    <TableCell>
+                      {listing.interestLevel && listing.interestLevel !== "none" ? (
+                        <Badge variant="outline" className={`text-[10px] px-1.5 py-0 h-4
+                          ${listing.interestLevel === "high" ? "border-primary text-primary" : ""}
+                          ${listing.interestLevel === "medium" ? "border-blue-500 text-blue-500" : ""}
+                          ${listing.interestLevel === "low" ? "border-muted-foreground text-muted-foreground" : ""}
+                        `}>
+                          {listing.interestLevel.toUpperCase()}
+                        </Badge>
+                      ) : "—"}
+                    </TableCell>
 
                     {/* Parking */}
                     <TableCell className="text-muted-foreground">{fmt(listing.parkingInfo)}</TableCell>
