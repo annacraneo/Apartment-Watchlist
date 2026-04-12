@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, desc, ilike, and, sql } from "drizzle-orm";
+import { eq, desc, asc, and, sql, type Column } from "drizzle-orm";
 import { db } from "@workspace/db";
 import {
   listingsTable,
@@ -72,16 +72,16 @@ router.get("/listings", async (req, res): Promise<void> => {
     query = query.where(and(...conditions));
   }
 
-  const validSortFields: Record<string, typeof listingsTable.id> = {
-    firstSavedAt: listingsTable.firstSavedAt as unknown as typeof listingsTable.id,
-    updatedAt: listingsTable.updatedAt as unknown as typeof listingsTable.id,
-    lastCheckedAt: listingsTable.lastCheckedAt as unknown as typeof listingsTable.id,
-    currentPrice: listingsTable.currentPrice as unknown as typeof listingsTable.id,
-    priceDelta: listingsTable.priceDelta as unknown as typeof listingsTable.id,
+  const validSortFields: Record<string, Column> = {
+    firstSavedAt: listingsTable.firstSavedAt,
+    updatedAt: listingsTable.updatedAt,
+    lastCheckedAt: listingsTable.lastCheckedAt,
+    currentPrice: listingsTable.currentPrice,
+    priceDelta: listingsTable.priceDelta,
   };
 
-  const sortCol = validSortFields[sortBy || "updatedAt"] || listingsTable.updatedAt;
-  query = query.orderBy(sortDir === "asc" ? sortCol : desc(sortCol));
+  const sortCol: Column = validSortFields[sortBy || "updatedAt"] ?? listingsTable.updatedAt;
+  query = query.orderBy(sortDir === "asc" ? asc(sortCol) : desc(sortCol));
 
   const listings = await query;
   res.json(listings);

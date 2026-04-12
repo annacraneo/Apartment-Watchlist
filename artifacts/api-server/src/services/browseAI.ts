@@ -18,15 +18,16 @@ export async function getBrowseAiSettings(): Promise<BrowseAiSettings> {
     const rows = await db.select().from(settingsTable).where(eq(settingsTable.key, "browse_ai_api_key"));
     const robotRows = await db.select().from(settingsTable).where(eq(settingsTable.key, "browse_ai_robot_id"));
     const secretRows = await db.select().from(settingsTable).where(eq(settingsTable.key, "browse_ai_webhook_secret"));
-    const modeRows = await db.select().from(settingsTable).where(eq(settingsTable.key, "extraction_mode"));
 
     const apiKey = rows[0]?.value || null;
     const robotId = robotRows[0]?.value || null;
     const webhookSecret = secretRows[0]?.value || null;
-    const mode = modeRows[0]?.value || "native";
 
+    // `enabled` reflects whether credentials are present and usable.
+    // The caller is responsible for deciding WHEN to use Browse AI
+    // (based on the resolved extraction mode, not the global default).
     return {
-      enabled: mode === "browse_ai" && !!apiKey && !!robotId,
+      enabled: !!apiKey && !!robotId,
       apiKey,
       robotId,
       webhookSecret,

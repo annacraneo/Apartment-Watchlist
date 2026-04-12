@@ -11,6 +11,7 @@
 import { db } from "@workspace/db";
 import {
   listingsTable,
+  listingSnapshotsTable,
   listingChangesTable,
   notificationsTable,
 } from "@workspace/db";
@@ -146,6 +147,41 @@ async function seed() {
     if (!inserted) continue;
     const id = inserted.id;
     console.log(`  ✅ Inserted listing #${id}: ${listing.title}`);
+
+    // Seed snapshots (simulate a few historical check runs)
+    const snapshotBase = {
+      listingId: id,
+      listingStatus: listing.listingStatus,
+      currentPrice: listing.currentPrice,
+      fetchSuccess: true,
+      errorMessage: null,
+      extractedData: JSON.stringify({
+        sourceSite: listing.sourceSite,
+        title: listing.title,
+        address: listing.address,
+        currentPrice: listing.currentPrice,
+        listingStatus: listing.listingStatus,
+        bedrooms: listing.bedrooms,
+        bathrooms: listing.bathrooms,
+        squareFeet: listing.squareFeet,
+      }),
+    };
+
+    await db.insert(listingSnapshotsTable).values([
+      // Most recent snapshot (now)
+      { ...snapshotBase, checkedAt: new Date() },
+      // Snapshot at time of first save
+      {
+        ...snapshotBase,
+        checkedAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000),
+        currentPrice: listing.previousPrice ?? listing.currentPrice,
+        extractedData: JSON.stringify({
+          ...JSON.parse(snapshotBase.extractedData),
+          currentPrice: listing.previousPrice ?? listing.currentPrice,
+        }),
+      },
+    ]);
+    console.log(`    📸 Added 2 snapshot records`);
 
     // Seed change history for listings that had price drops
     if (listing.previousPrice) {
