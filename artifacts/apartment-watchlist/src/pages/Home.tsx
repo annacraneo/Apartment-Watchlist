@@ -675,7 +675,7 @@ export default function Home() {
                   <TableHead className="w-24">Tax</TableHead>
                   <TableHead className="w-10 text-center">Notes</TableHead>
                   <TableHead className="w-10"></TableHead>
-                  <TableHead className="w-28 text-right">Last Checked</TableHead>
+                  <TableHead className="w-28 text-left">Last Checked</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -830,7 +830,7 @@ export default function Home() {
                         </TableCell>
 
                         {/* Last checked */}
-                        <TableCell className="text-right text-muted-foreground tabular-nums">
+                        <TableCell className="text-left text-muted-foreground tabular-nums">
                           {timeAgo(listing.updatedAt)}
                         </TableCell>
                       </TableRow>
