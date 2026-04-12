@@ -1016,14 +1016,14 @@ export default function Home() {
                         <div className="h-px bg-border/50" />
 
                         {/* Financials */}
-                        <div className="grid grid-cols-2 gap-2">
-                          <div className="rounded-lg bg-muted/40 px-3 py-2">
-                            <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Condo fees</p>
-                            <p className="text-sm font-semibold tabular-nums">{fmt(listing.condoFees)}</p>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          <div className="rounded bg-muted/40 px-2 py-1">
+                            <p className="text-[9px] text-muted-foreground uppercase tracking-wide">Condo fees</p>
+                            <p className="text-xs font-semibold tabular-nums">{fmt(listing.condoFees)}</p>
                           </div>
-                          <div className="rounded-lg bg-muted/40 px-3 py-2">
-                            <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Tax</p>
-                            <p className="text-sm font-semibold tabular-nums">{toMonthly(listing.taxes)}</p>
+                          <div className="rounded bg-muted/40 px-2 py-1">
+                            <p className="text-[9px] text-muted-foreground uppercase tracking-wide">Tax</p>
+                            <p className="text-xs font-semibold tabular-nums">{toMonthly(listing.taxes)}</p>
                           </div>
                         </div>
 
