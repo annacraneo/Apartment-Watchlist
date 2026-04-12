@@ -6,7 +6,8 @@ import {
   useCheckAllListings,
   useUpdateListing,
   getGetListingsQueryKey,
-  getGetDashboardSummaryQueryKey
+  getGetDashboardSummaryQueryKey,
+  type GetListingsParams
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { 
@@ -68,7 +69,7 @@ export default function Home() {
 
   const { data: summary, isLoading: isLoadingSummary } = useGetDashboardSummary();
 
-  const queryParams: any = {
+  const queryParams: GetListingsParams = {
     search: debouncedSearch || undefined,
     status: status !== "all" ? status : undefined,
     interestLevel: interestLevel !== "all" ? interestLevel : undefined,
@@ -148,7 +149,7 @@ export default function Home() {
             <Button 
               variant="outline" 
               size="sm" 
-              onClick={() => checkAll.mutate({})} 
+              onClick={() => checkAll.mutate()} 
               disabled={checkAll.isPending}
               data-testid="btn-check-all"
             >

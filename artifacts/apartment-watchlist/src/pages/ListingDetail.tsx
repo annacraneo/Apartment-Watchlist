@@ -85,7 +85,7 @@ export default function ListingDetail() {
         queryClient.invalidateQueries({ queryKey: getGetListingSnapshotsQueryKey(id) });
       },
       onError: (err) => {
-        toast({ title: "Check failed", description: err.error || "Unknown error", variant: "destructive" });
+        toast({ title: "Check failed", description: err.message || "Unknown error", variant: "destructive" });
       }
     }
   });

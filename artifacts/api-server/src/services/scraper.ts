@@ -1,5 +1,6 @@
 import { logger } from "../lib/logger.js";
 import { parseHtml, type NormalizedListing } from "../parsers/index.js";
+import { emptyNormalized } from "../parsers/shared.js";
 import { getBrowseAiSettings, fetchViaBrowseAi } from "./browseAI.js";
 
 const FETCH_TIMEOUT_MS = 15000;
@@ -18,7 +19,49 @@ export interface ScrapeResult {
   errorMessage: string | null;
 }
 
+/**
+ * Return a mock scrape result for development/testing.
+ *
+ * Enabled by setting the MOCK_MODE=true environment variable.
+ * Simulates a realistic listing with slightly randomised price so the diff
+ * engine can detect changes across repeated calls.
+ */
+function mockScrapeResult(url: string): ScrapeResult {
+  const sourceSite = url.includes("centris") ? "centris" : "realtor";
+  const basePrice = 450000 + Math.floor(Math.random() * 5) * 1000;
+
+  const data: NormalizedListing = {
+    ...emptyNormalized(),
+    sourceSite,
+    listingStatus: "active",
+    currentPrice: String(basePrice),
+    currency: "CAD",
+    title: "Mock Listing – Dev Mode",
+    address: "123 Mock Street",
+    neighborhood: "Mock Neighbourhood",
+    city: "Montreal",
+    province: "QC",
+    postalCode: "H0H 0H0",
+    bedrooms: "2",
+    bathrooms: "1",
+    squareFeet: "800",
+    propertyType: "Condo",
+    daysOnMarket: "14",
+    description: "This is a mock listing returned in MOCK_MODE=true.",
+    brokerName: "Mock Agent",
+    brokerage: "Mock Realty",
+    rawData: JSON.stringify({ mock: true, url }),
+  };
+
+  logger.info({ url, basePrice }, "MOCK_MODE: returning mock scrape result");
+  return { success: true, data, errorMessage: null };
+}
+
 export async function scrapeUrl(url: string): Promise<ScrapeResult> {
+  if (process.env["MOCK_MODE"] === "true") {
+    return mockScrapeResult(url);
+  }
+
   // Check if Browse AI is configured for this source
   const browseAiSettings = await getBrowseAiSettings();
 

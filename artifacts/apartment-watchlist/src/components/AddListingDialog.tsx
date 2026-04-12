@@ -70,7 +70,7 @@ export function AddListingDialog() {
       onError: (error) => {
         toast({
           title: "Failed to add listing",
-          description: error?.error || "Unknown error occurred.",
+          description: error?.message || "Unknown error occurred.",
           variant: "destructive",
         });
       },

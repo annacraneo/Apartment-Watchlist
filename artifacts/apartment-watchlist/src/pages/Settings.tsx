@@ -10,7 +10,7 @@ import {
   getGetNotificationsQueryKey
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Settings as SettingsIcon, Save, Key, Bot, Shield, Bell } from "lucide-react";
+import { Settings as SettingsIcon, Save, Key, Bot, Shield, Bell, RefreshCw } from "lucide-react";
 
 import {
   Form,
@@ -88,7 +88,7 @@ export default function Settings() {
         queryClient.invalidateQueries({ queryKey: getGetSettingsQueryKey() });
       },
       onError: (err) => {
-        toast({ title: "Failed to save settings", description: err.error, variant: "destructive" });
+        toast({ title: "Failed to save settings", description: err.message, variant: "destructive" });
       }
     }
   });

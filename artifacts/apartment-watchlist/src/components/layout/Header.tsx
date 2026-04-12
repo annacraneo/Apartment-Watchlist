@@ -22,9 +22,10 @@ import { formatDistanceToNow } from "date-fns";
 
 export function Header() {
   const queryClient = useQueryClient();
+  const notifParams = { unreadOnly: "true" } as const;
   const { data: notifications = [] } = useGetNotifications(
-    { unreadOnly: "true" }, 
-    { query: { refetchInterval: 30000 } }
+    notifParams,
+    { query: { queryKey: getGetNotificationsQueryKey(notifParams), refetchInterval: 30000 } }
   );
 
   const markAllRead = useMarkAllNotificationsRead({
@@ -73,7 +74,7 @@ export function Header() {
               <DropdownMenuLabel className="flex items-center justify-between">
                 <span>Notifications</span>
                 {notifications.length > 0 && (
-                  <Button variant="ghost" size="sm" onClick={() => markAllRead.mutate({})} data-testid="btn-mark-all-read" className="h-auto p-0 text-xs">
+                  <Button variant="ghost" size="sm" onClick={() => markAllRead.mutate()} data-testid="btn-mark-all-read" className="h-auto p-0 text-xs">
                     Mark all read
                   </Button>
                 )}
