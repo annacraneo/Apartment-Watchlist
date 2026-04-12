@@ -169,6 +169,7 @@ export async function checkListing(
       yearBuilt: newData.yearBuilt ?? listing.yearBuilt,
       condoFees: newData.condoFees ?? listing.condoFees,
       taxes: newData.taxes ?? listing.taxes,
+      parkingInfo: newData.parkingInfo ?? listing.parkingInfo,
       listingStatus: newData.listingStatus ?? listing.listingStatus,
       daysOnMarket: newData.daysOnMarket ?? listing.daysOnMarket,
       description: newData.description ?? listing.description,

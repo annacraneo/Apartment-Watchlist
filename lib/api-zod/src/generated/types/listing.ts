@@ -54,6 +54,8 @@ export interface Listing {
   /** @nullable */
   taxes?: string | null;
   /** @nullable */
+  parkingInfo?: string | null;
+  /** @nullable */
   listingStatus?: string | null;
   /** @nullable */
   daysOnMarket?: string | null;

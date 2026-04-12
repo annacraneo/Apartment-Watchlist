@@ -27,6 +27,7 @@ export const listingsTable = pgTable("listings", {
   yearBuilt: text("year_built"),
   condoFees: text("condo_fees"),
   taxes: text("taxes"),
+  parkingInfo: text("parking_info"),
   listingStatus: text("listing_status"),
   daysOnMarket: text("days_on_market"),
   description: text("description"),

@@ -159,6 +159,7 @@ router.post("/listings", async (req, res): Promise<void> => {
             yearBuilt: data.yearBuilt,
             condoFees: data.condoFees,
             taxes: data.taxes,
+            parkingInfo: data.parkingInfo,
             listingStatus: data.listingStatus || "active",
             daysOnMarket: data.daysOnMarket,
             description: data.description,

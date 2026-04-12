@@ -123,6 +123,10 @@ export function parseCentris(html: string, url: string): NormalizedListing {
     const daysMatch = html.match(/(\d+)\s*(days|jours)\s*(on market|sur le marché)?/i);
     if (daysMatch) result.daysOnMarket = daysMatch[1];
 
+    // Parking info (e.g. "Driveway (1)", "Garage (2)", "Stationnement (1)")
+    const parkingMatch = html.match(/(garage|driveway|stationnement|parking|carport)[^<\n]{0,60}(\(\d+\)|\d+\s*place)/i);
+    if (parkingMatch) result.parkingInfo = parkingMatch[0].replace(/<[^>]+>/g, "").trim();
+
     result.rawData = JSON.stringify({ source: "centris", url, extractedAt: new Date().toISOString() });
   } catch (err) {
     result.rawData = JSON.stringify({ error: String(err), source: "centris", url });

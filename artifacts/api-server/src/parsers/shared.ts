@@ -19,6 +19,7 @@ export interface NormalizedListing {
   yearBuilt: string | null;
   condoFees: string | null;
   taxes: string | null;
+  parkingInfo: string | null;
   listingStatus: string | null;
   daysOnMarket: string | null;
   description: string | null;
@@ -51,6 +52,7 @@ export function emptyNormalized(): NormalizedListing {
     yearBuilt: null,
     condoFees: null,
     taxes: null,
+    parkingInfo: null,
     listingStatus: null,
     daysOnMarket: null,
     description: null,
