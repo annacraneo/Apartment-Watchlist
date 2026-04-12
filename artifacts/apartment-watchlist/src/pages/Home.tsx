@@ -570,7 +570,6 @@ export default function Home() {
                   <TableHead className="w-24">Fees</TableHead>
                   <TableHead className="w-24">Tax</TableHead>
                   <TableHead className="w-10 text-center">Notes</TableHead>
-                  <TableHead className="w-10"></TableHead>
                   <TableHead className="w-28 text-left">Last Checked</TableHead>
                 </TableRow>
               </TableHeader>
@@ -709,19 +708,6 @@ export default function Home() {
                           <div className="flex items-center gap-0.5">
                             <NotesPopover {...notesProps(listing)} />
                           </div>
-                        </TableCell>
-
-                        {/* Delete */}
-                        <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
-                            onClick={(e) => { e.stopPropagation(); deleteListing.mutate({ id: listing.id }); }}
-                            data-testid={`btn-delete-${listing.id}`}
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </Button>
                         </TableCell>
 
                         {/* Last checked */}
