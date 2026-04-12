@@ -64,10 +64,10 @@ export function parseCentris(html: string, url: string): NormalizedListing {
       result.address = addrEl.text().trim() || null;
     }
 
-    // Property features
+    // Property features — use specific bedroom/bathroom terms to avoid matching "6 rooms" as bedrooms
     const featuresText = $("[class*='feature'], [class*='Feature'], [class*='caracteristic']").text();
-    const bedsMatch = featuresText.match(/(\d+)\s*(bed|chambre|bdr|room)/i);
-    const bathsMatch = featuresText.match(/(\d+(?:\.\d+)?)\s*(bath|salle)/i);
+    const bedsMatch = featuresText.match(/(\d+)\s*(?:bedrooms?|chambres?\s*à\s*coucher|chambres?(?!\s*(?:de\s*bain|salle)))/i);
+    const bathsMatch = featuresText.match(/(\d+(?:\.\d+)?)\s*(?:bathrooms?|salles?\s*de\s*bain|sdb)/i);
     if (bedsMatch && !result.bedrooms) result.bedrooms = bedsMatch[1];
     if (bathsMatch && !result.bathrooms) result.bathrooms = bathsMatch[1];
 

@@ -1,15 +1,16 @@
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import { Link } from "wouter";
 import { 
   useGetListings, 
   useGetDashboardSummary,
   useCheckAllListings,
   useUpdateListing,
+  useDeleteListing,
   getGetListingsQueryKey,
   getGetDashboardSummaryQueryKey,
   type GetListingsParams
 } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { 
   Search, 
   RefreshCw, 
@@ -18,12 +19,16 @@ import {
   MapPin,
   ArrowDown,
   ArrowUp,
-  FileText
+  FileText,
+  Trash2,
+  Copy,
+  Check,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { 
   Select, 
   SelectContent, 
@@ -48,16 +53,38 @@ import { useToast } from "@/hooks/use-toast";
 import { AddListingDialog } from "@/components/AddListingDialog";
 import { StatusBadge } from "@/components/StatusBadge";
 
+function CopyAddress({ address }: { address: string }) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    navigator.clipboard.writeText(address).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  };
+  return (
+    <button
+      onClick={handleCopy}
+      className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+      title="Copy address"
+    >
+      {copied ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
+      <span className="truncate max-w-[220px]">{address}</span>
+    </button>
+  );
+}
+
 export default function Home() {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [status, setStatus] = useState<string>("all");
   const [interestLevel, setInterestLevel] = useState<string>("all");
-  const [source, setSource] = useState<string>("all");
   const [hasPriceDrop, setHasPriceDrop] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [sortBy, setSortBy] = useState("updatedAt");
   const [sortDir, setSortDir] = useState("desc");
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -73,7 +100,6 @@ export default function Home() {
     search: debouncedSearch || undefined,
     status: status !== "all" ? status : undefined,
     interestLevel: interestLevel !== "all" ? interestLevel : undefined,
-    source: source !== "all" ? source : undefined,
     hasPriceDrop: hasPriceDrop ? "true" : undefined,
     archived: showArchived ? "true" : "false",
     sortBy,
@@ -108,6 +134,61 @@ export default function Home() {
     }
   });
 
+  const deleteListing = useDeleteListing({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getGetListingsQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
+        toast({ title: "Listing deleted" });
+      },
+      onError: () => {
+        toast({ title: "Failed to delete listing", variant: "destructive" });
+      }
+    }
+  });
+
+  const bulkDelete = useMutation({
+    mutationFn: async (ids: number[]) => {
+      const res = await fetch("/listings/bulk-delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+      });
+      if (!res.ok) throw new Error("Bulk delete failed");
+      return res.json();
+    },
+    onSuccess: (data: { deleted: number }) => {
+      queryClient.invalidateQueries({ queryKey: getGetListingsQueryKey() });
+      queryClient.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
+      setSelectedIds(new Set());
+      toast({ title: `Deleted ${data.deleted} listing${data.deleted !== 1 ? "s" : ""}` });
+    },
+    onError: () => {
+      toast({ title: "Bulk delete failed", variant: "destructive" });
+    }
+  });
+
+  const allIds = listings?.map((l) => l.id) ?? [];
+  const allSelected = allIds.length > 0 && allIds.every((id) => selectedIds.has(id));
+  const someSelected = selectedIds.size > 0;
+
+  const toggleSelectAll = useCallback(() => {
+    if (allSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(allIds));
+    }
+  }, [allSelected, allIds]);
+
+  const toggleSelect = useCallback((id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
   return (
     <div className="flex-1 p-6 container mx-auto space-y-6">
       <div className="bg-card border rounded-lg overflow-hidden flex flex-col">
@@ -125,6 +206,18 @@ export default function Home() {
           </div>
           
           <div className="flex items-center gap-2 flex-wrap">
+            {someSelected && (
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => bulkDelete.mutate(Array.from(selectedIds))}
+                disabled={bulkDelete.isPending}
+                data-testid="btn-bulk-delete"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete {selectedIds.size} selected
+              </Button>
+            )}
             <AddListingDialog />
             <Button 
               variant="outline" 
@@ -163,17 +256,6 @@ export default function Home() {
               <SelectItem value="high">High</SelectItem>
               <SelectItem value="medium">Medium</SelectItem>
               <SelectItem value="low">Low</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Select value={source} onValueChange={setSource}>
-            <SelectTrigger className="w-[140px] h-8" data-testid="filter-source">
-              <SelectValue placeholder="Source" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Sources</SelectItem>
-              <SelectItem value="centris">Centris</SelectItem>
-              <SelectItem value="realtor">Realtor.ca</SelectItem>
             </SelectContent>
           </Select>
 
@@ -219,14 +301,22 @@ export default function Home() {
           <Table>
             <TableHeader className="bg-muted/50 sticky top-0">
               <TableRow>
-                <TableHead className="w-10 text-center"></TableHead>
-                <TableHead className="w-16"></TableHead>
+                <TableHead className="w-10 text-center">
+                  <Checkbox
+                    checked={allSelected}
+                    onCheckedChange={toggleSelectAll}
+                    aria-label="Select all"
+                    data-testid="checkbox-select-all"
+                  />
+                </TableHead>
+                <TableHead className="w-8"></TableHead>
                 <TableHead>Property</TableHead>
                 <TableHead>Price</TableHead>
                 <TableHead>Specs</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Interest</TableHead>
                 <TableHead className="text-right">Last Checked</TableHead>
+                <TableHead className="w-10"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -234,18 +324,19 @@ export default function Home() {
                 Array.from({ length: 5 }).map((_, i) => (
                   <TableRow key={i}>
                     <TableCell><Skeleton className="h-4 w-4" /></TableCell>
-                    <TableCell><Skeleton className="h-10 w-16 rounded" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-4" /></TableCell>
                     <TableCell><Skeleton className="h-8 w-48" /></TableCell>
                     <TableCell><Skeleton className="h-6 w-24" /></TableCell>
                     <TableCell><Skeleton className="h-6 w-32" /></TableCell>
                     <TableCell><Skeleton className="h-6 w-20" /></TableCell>
                     <TableCell><Skeleton className="h-6 w-16" /></TableCell>
                     <TableCell className="text-right"><Skeleton className="h-4 w-20 ml-auto" /></TableCell>
+                    <TableCell><Skeleton className="h-6 w-6" /></TableCell>
                   </TableRow>
                 ))
               ) : listings?.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="h-48 text-center text-muted-foreground">
+                  <TableCell colSpan={9} className="h-48 text-center text-muted-foreground">
                     <div className="flex flex-col items-center justify-center space-y-2">
                       <MapPin className="w-8 h-8 text-muted" />
                       <p>No listings found matching your criteria.</p>
@@ -254,7 +345,6 @@ export default function Home() {
                           setSearch("");
                           setStatus("all");
                           setInterestLevel("all");
-                          setSource("all");
                           setHasPriceDrop(false);
                           setShowArchived(false);
                         }}>Clear Filters</Button>
@@ -267,6 +357,14 @@ export default function Home() {
               ) : (
                 listings?.map((listing) => (
                   <TableRow key={listing.id} className={`group ${listing.hidden ? 'opacity-50' : ''}`} data-testid={`row-listing-${listing.id}`}>
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedIds.has(listing.id)}
+                        onCheckedChange={() => toggleSelect(listing.id)}
+                        aria-label={`Select listing ${listing.id}`}
+                        data-testid={`checkbox-listing-${listing.id}`}
+                      />
+                    </TableCell>
                     <TableCell>
                       <Button 
                         variant="ghost" 
@@ -284,24 +382,15 @@ export default function Home() {
                       </Button>
                     </TableCell>
                     <TableCell>
-                      <div className="w-16 h-12 bg-muted rounded overflow-hidden border">
-                        {listing.mainImageUrl ? (
-                          <img src={listing.mainImageUrl} alt="Thumbnail" className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">No img</div>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex flex-col">
-                        <Link href={`/listings/${listing.id}`} className="font-semibold hover:underline text-primary truncate max-w-[250px]" data-testid={`link-listing-${listing.id}`}>
+                      <div className="flex flex-col gap-0.5">
+                        <Link href={`/listings/${listing.id}`} className="font-semibold hover:underline text-primary truncate max-w-[280px]" data-testid={`link-listing-${listing.id}`}>
                           {listing.title || listing.address || "Unknown Property"}
                         </Link>
-                        <div className="text-xs text-muted-foreground flex items-center gap-2 mt-1">
+                        {listing.address && (
+                          <CopyAddress address={listing.address} />
+                        )}
+                        <div className="text-xs text-muted-foreground flex items-center gap-2 mt-0.5">
                           {listing.neighborhood && <span>{listing.neighborhood}</span>}
-                          {listing.sourceSite && (
-                            <Badge variant="outline" className="text-[10px] px-1 py-0 h-4">{listing.sourceSite}</Badge>
-                          )}
                           {listing.notes && <FileText className="w-3 h-3 text-muted-foreground" />}
                         </div>
                       </div>
@@ -318,10 +407,15 @@ export default function Home() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="text-sm flex gap-3 text-muted-foreground">
-                        <span title="Bedrooms">{listing.bedrooms || "-"} bd</span>
-                        <span title="Bathrooms">{listing.bathrooms || "-"} ba</span>
-                        {listing.squareFeet && <span title="Square Feet">{listing.squareFeet} sqft</span>}
+                      <div className="text-sm flex flex-col gap-0.5 text-muted-foreground">
+                        <div className="flex gap-3">
+                          <span title="Bedrooms">{listing.bedrooms || "-"} bd</span>
+                          <span title="Bathrooms">{listing.bathrooms || "-"} ba</span>
+                          {listing.squareFeet && <span title="Square Feet">{listing.squareFeet} sqft</span>}
+                        </div>
+                        {listing.daysOnMarket && (
+                          <span className="text-xs text-muted-foreground">{listing.daysOnMarket} days on market</span>
+                        )}
                       </div>
                     </TableCell>
                     <TableCell>
@@ -345,6 +439,23 @@ export default function Home() {
                           {formatDistanceToNow(new Date(listing.lastCheckedAt), { addSuffix: true })}
                         </div>
                       ) : "Never"}
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          deleteListing.mutate({ id: listing.id });
+                        }}
+                        disabled={deleteListing.isPending}
+                        data-testid={`btn-delete-${listing.id}`}
+                        title="Delete listing"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))

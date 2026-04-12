@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, desc, asc, and, sql, type Column } from "drizzle-orm";
+import { eq, desc, asc, and, sql, inArray, type Column } from "drizzle-orm";
 import { db } from "@workspace/db";
 import {
   listingsTable,
@@ -16,6 +16,7 @@ import {
   CheckListingParams,
   GetListingChangesParams,
   GetListingSnapshotsParams,
+  BulkDeleteListingsBody,
 } from "@workspace/api-zod";
 import { logger } from "../lib/logger.js";
 import { scrapeUrl, validateListingUrl } from "../services/scraper.js";
@@ -347,6 +348,24 @@ router.get("/listings/:id/snapshots", async (req, res): Promise<void> => {
     .limit(20);
 
   res.json(snapshots);
+});
+
+// POST /listings/bulk-delete
+router.post("/listings/bulk-delete", async (req, res): Promise<void> => {
+  const parsed = BulkDeleteListingsBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const { ids } = parsed.data;
+
+  const deleted = await db
+    .delete(listingsTable)
+    .where(inArray(listingsTable.id, ids))
+    .returning({ id: listingsTable.id });
+
+  res.json({ deleted: deleted.length });
 });
 
 export default router;

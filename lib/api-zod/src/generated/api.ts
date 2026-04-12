@@ -439,3 +439,12 @@ export const GetDashboardSummaryResponse = zod.object({
     }),
   ),
 });
+
+
+export const BulkDeleteListingsBody = zod.object({
+  ids: zod.array(zod.number()).min(1),
+});
+
+export const BulkDeleteListingsResponse = zod.object({
+  deleted: zod.number(),
+});
