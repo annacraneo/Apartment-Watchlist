@@ -693,9 +693,6 @@ export default function Home() {
                               </a>
                             )}
                           </div>
-                          {listing.neighborhood && (
-                            <div className="text-[10px] text-muted-foreground mt-0.5">{listing.neighborhood}</div>
-                          )}
                         </TableCell>
 
                         {/* Price */}
