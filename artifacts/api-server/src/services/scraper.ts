@@ -21,6 +21,43 @@ export interface ScrapeResult {
 }
 
 /**
+ * Allowed listing source hostnames. Only Centris and Realtor.ca are supported.
+ * This prevents SSRF attacks where a user-supplied URL could reach internal
+ * services, private IP ranges, or unintended hosts.
+ */
+const ALLOWED_HOSTNAME_PATTERNS = [
+  /^(www\.)?centris\.(ca|com)$/i,
+  /^(www\.)?realtor\.ca$/i,
+];
+
+/**
+ * Validate that a URL is safe to fetch:
+ * - Must be http or https
+ * - Hostname must match one of the approved listing sources
+ * Returns an error string if invalid, or null if the URL is acceptable.
+ */
+export function validateListingUrl(urlString: string): string | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(urlString);
+  } catch {
+    return "Invalid URL format.";
+  }
+
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    return "Only http and https URLs are allowed.";
+  }
+
+  const hostname = parsed.hostname.toLowerCase();
+  const allowed = ALLOWED_HOSTNAME_PATTERNS.some((re) => re.test(hostname));
+  if (!allowed) {
+    return `URL host "${hostname}" is not an allowed listing source. Only centris.ca and realtor.ca are supported.`;
+  }
+
+  return null;
+}
+
+/**
  * Return a mock scrape result for development/testing.
  *
  * Enabled by setting the MOCK_MODE=true environment variable.

@@ -18,7 +18,7 @@ import {
   GetListingSnapshotsParams,
 } from "@workspace/api-zod";
 import { logger } from "../lib/logger.js";
-import { scrapeUrl } from "../services/scraper.js";
+import { scrapeUrl, validateListingUrl } from "../services/scraper.js";
 import { checkListing, checkAllListings } from "../services/checker.js";
 import { computePriceDelta } from "../parsers/shared.js";
 
@@ -96,6 +96,13 @@ router.post("/listings", async (req, res): Promise<void> => {
   }
 
   const { listingUrl, notes, personalRating, tags, interestLevel } = parsed.data;
+
+  // Validate URL is from an allowed source (SSRF prevention)
+  const urlError = validateListingUrl(listingUrl.trim());
+  if (urlError) {
+    res.status(400).json({ error: urlError });
+    return;
+  }
 
   // Duplicate URL check
   const existing = await db

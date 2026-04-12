@@ -135,7 +135,7 @@ export function parseBrowseAiPayload(
   }
 
   // Detect source from URL
-  if (/centris\.com/i.test(url)) result.sourceSite = "centris";
+  if (/centris\.(ca|com)/i.test(url)) result.sourceSite = "centris";
   else if (/realtor\.ca/i.test(url)) result.sourceSite = "realtor";
   else result.sourceSite = "browse_ai";
 
