@@ -1,0 +1,255 @@
+Build a full-stack personal web app called “Apartment Watchlist” for tracking apartment / condo listings from pasted URLs.
+
+Core purpose:
+- This app is NOT a broad scraper and must NOT crawl search result pages or discover listings automatically.
+- The workflow is manual: I browse listing sites myself (for example Centris or Realtor), decide a listing is worth tracking, paste the URL into the app, and save it.
+- After that, the app should parse the listing page, extract key information into a structured table, and periodically re-check the same saved URLs for changes like price drops or status changes.
+
+Primary user flow:
+1. I paste a listing URL manually.
+2. The app fetches the page and extracts structured data.
+3. The app saves that data as one tracked listing.
+4. The app periodically re-checks the same URL.
+5. If any tracked field changes, the app logs the change and updates the listing row.
+6. The UI highlights important changes such as price drop, price increase, listing removed, sold, pending, or description change.
+
+Technical approach:
+- Build this for Replit.
+- Use a clean, simple full-stack architecture that runs well on Replit.
+- Preferred stack: Node.js + Express + SQLite for the backend, with a simple frontend using React or server-rendered pages.
+- Keep the MVP lightweight and easy to run.
+- Make the code clean and modular so I can later swap SQLite for Postgres if needed.
+
+Important scope rules:
+- Only track URLs that I paste manually.
+- Do not build automatic search scraping.
+- Do not scrape “all apartments matching criteria.”
+- Assume this is a personal watchlist tool, not a public large-scale crawler.
+- Respect site failures gracefully; do not hammer sites with aggressive retries.
+
+Supported sources:
+- Design the extraction layer to support at least:
+  - Centris listing pages
+  - Realtor listing pages
+- Create source-specific parser modules so each website has its own extraction logic.
+- Make it easy to add more sites later.
+
+Extraction requirements:
+For each saved listing, try to extract as many of these fields as possible:
+- source_site
+- listing_url
+- external_listing_id (MLS, Centris ID, or page-specific ID if available)
+- title
+- address
+- neighborhood
+- city
+- province/state
+- postal_code
+- latitude / longitude if present
+- current_price
+- currency
+- bedrooms
+- bathrooms
+- square_feet
+- property_type
+- floor
+- year_built
+- condo_fees or monthly fees if present
+- taxes if present
+- listing_status
+- days_on_market if present
+- description
+- broker / agent name
+- brokerage
+- main_image_url
+- all_image_urls if practical
+- last_checked_at
+- first_saved_at
+
+Also include user-managed fields:
+- personal_rating (1–5)
+- interest_level (low / medium / high)
+- notes
+- tags
+- hidden / archived flag
+
+Data model:
+Create at least these tables:
+1. listings
+2. listing_snapshots
+3. listing_changes
+
+Suggested behavior:
+- listings = current normalized state
+- listing_snapshots = full snapshot from each check
+- listing_changes = field-by-field change history
+
+Example listing_changes fields:
+- id
+- listing_id
+- changed_at
+- field_name
+- old_value
+- new_value
+- change_type
+
+Important change types:
+- price_drop
+- price_increase
+- status_change
+- description_change
+- removed
+- restored
+- metadata_change
+
+Monitoring behavior:
+- Add a configurable re-check interval, default every 12 hours.
+- Also include a “Check now” button for a single listing.
+- Also include a “Check all now” action.
+- If Replit scheduled jobs are limited, implement both:
+  - a simple scheduler option
+  - a manual refresh fallback
+- The app should never duplicate a listing if I paste the same URL twice; it should detect duplicates.
+
+Diff logic:
+When re-checking a listing:
+- Compare newly extracted values against the latest saved snapshot.
+- Normalize price values before comparing.
+- Normalize whitespace in description before comparing.
+- Detect and store changes cleanly.
+- If the page is unavailable, do not delete the listing automatically; mark it as unavailable and log the failed check.
+- If the status changes to sold, pending, or unavailable, reflect that in the UI.
+
+Browse AI integration:
+Build the app with two extraction modes:
+1. Native scraping mode
+2. Browse AI mode
+
+Requirements:
+- Add a settings page where I can choose extraction mode globally or per source.
+- If Browse AI is enabled, the app should support storing:
+  - Browse AI API key
+  - robot ID(s)
+  - webhook endpoint secret if needed
+- The app should be able to:
+  - receive structured extraction data from Browse AI webhook, OR
+  - request extraction results from Browse AI API
+- If Browse AI is not configured, fall back to native parsing.
+- Make this integration optional, not required.
+
+Frontend requirements:
+Build a simple, clean dashboard with these views:
+
+1. Watchlist table
+Columns:
+- thumbnail
+- title
+- address / neighborhood
+- current price
+- previous price
+- price delta
+- status
+- bedrooms / bathrooms / sqft
+- source
+- last checked
+- interest level
+- notes indicator
+
+Features:
+- sort by price, date added, last checked, biggest price drop
+- filter by source, status, interest level, price drop, archived
+- search by address, neighborhood, or notes
+- color highlight price drops
+
+2. Listing detail page
+Show:
+- all extracted fields
+- raw description
+- personal notes
+- rating
+- tags
+- full change history
+- recent snapshots
+- button to check now
+- button to open original listing in a new tab
+
+3. Add listing form
+Fields:
+- listing URL
+- optional manual notes
+- optional rating
+- optional tags
+- save button
+
+4. Settings page
+Include:
+- extraction mode
+- check interval
+- Browse AI config
+- notification preferences
+
+Notifications:
+For MVP, implement in-app notifications first.
+If straightforward, also add email notification support for:
+- price drop
+- status change
+- listing unavailable
+Make notifications optional and configurable.
+
+Export:
+Add CSV export for:
+- current watchlist table
+- change history
+
+Parser design:
+Create separate parser modules, for example:
+- parsers/centris.js
+- parsers/realtor.js
+- parsers/shared.js
+
+Each parser should:
+- detect whether the page matches its site
+- extract structured fields
+- return normalized JSON
+- fail gracefully if some fields are missing
+
+Implementation details:
+- Use robust HTML parsing.
+- If needed for JS-rendered pages, support Playwright or Puppeteer, but keep the default approach as lightweight as possible.
+- Save the raw extracted JSON for debugging.
+- Log parsing failures clearly.
+- Include sample seed data or mock mode for testing without live scraping every time.
+
+UI style:
+- Minimal, modern, clean, practical.
+- Prioritize readability and scanning over flashy design.
+- This is a personal research tool, not a marketing website.
+- Use a responsive layout that works well on desktop first, then mobile.
+
+Nice-to-have features:
+- favorite / shortlist flag
+- “best value” custom tag
+- duplicate detection by address as well as URL
+- notes about renovation needed, laundry, balcony, metro proximity
+- custom score formula combining price, size, and my own rating
+
+Code quality:
+- Organize the code clearly.
+- Use environment variables for secrets.
+- Add a README with setup instructions for Replit.
+- Add comments only where useful.
+- Make the extraction layer easy to modify when site HTML changes.
+
+Deliverable:
+Produce a working MVP in Replit with:
+- manual URL save flow
+- watchlist table
+- source-specific extraction
+- periodic checking or manual fallback
+- change history
+- optional Browse AI integration hooks
+- CSV export
+- clean README
+
+Important product summary:
+This is a manually curated apartment watchlist app. I choose which listings to save. The app’s job is to parse those saved listing pages, keep them in a table, and update me when something changes.
