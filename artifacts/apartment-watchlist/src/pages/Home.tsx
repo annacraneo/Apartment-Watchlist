@@ -65,6 +65,10 @@ interface PriceChange {
   changeType: string;
 }
 
+function stripBorough(address: string): string {
+  return address.replace(/\s*\([^)]+\)\s*$/, "").trim();
+}
+
 function toMonthly(yearly: string | null | undefined): string {
   if (!yearly) return "—";
   const num = parseFloat(yearly.replace(/[^0-9.]/g, ""));
@@ -535,7 +539,7 @@ export default function Home() {
                               {listing.address || listing.title || listing.listingUrl}
                             </span>
                             {(listing.address || listing.title) && (
-                              <CopyText text={listing.address || listing.title || ""} />
+                              <CopyText text={stripBorough(listing.address || listing.title || "")} />
                             )}
                             {listing.listingUrl && (
                               <a href={listing.listingUrl} target="_blank" rel="noopener noreferrer"
@@ -691,7 +695,7 @@ export default function Home() {
                                 {listing.address || listing.title || listing.listingUrl}
                               </p>
                               {(listing.address || listing.title) && (
-                                <CopyText text={listing.address || listing.title || ""} />
+                                <CopyText text={stripBorough(listing.address || listing.title || "")} />
                               )}
                               {listing.listingUrl && (
                                 <a href={listing.listingUrl} target="_blank" rel="noopener noreferrer"
