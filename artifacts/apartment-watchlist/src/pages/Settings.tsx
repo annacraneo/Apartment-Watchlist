@@ -163,58 +163,58 @@ export default function Settings() {
               <Separator />
 
               {form.watch("extractionMode") === "browse_ai" && (
-            <Card className="border-primary/50">
-              <CardHeader className="bg-primary/5">
-                <CardTitle className="flex items-center text-primary">
-                  <Bot className="w-5 h-5 mr-2" />
-                  Browse AI Configuration
-                </CardTitle>
-                <CardDescription>Required credentials for using the Browse AI extraction engine.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4 mt-4">
-                <FormField
-                  control={form.control}
-                  name="browseAiApiKey"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="flex items-center"><Key className="w-3 h-3 mr-1" /> API Key</FormLabel>
-                      <FormControl>
-                        <Input type="password" placeholder="••••••••••••••••" {...field} data-testid="input-browse-api-key" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="browseAiRobotId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="flex items-center"><Bot className="w-3 h-3 mr-1" /> Robot ID</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g. 5d7f8..." {...field} data-testid="input-browse-robot-id" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="browseAiWebhookSecret"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="flex items-center"><Shield className="w-3 h-3 mr-1" /> Webhook Secret</FormLabel>
-                      <FormControl>
-                        <Input type="password" placeholder="••••••••••••••••" {...field} data-testid="input-browse-webhook-secret" />
-                      </FormControl>
-                      <FormDescription>Used to verify incoming webhook requests from Browse AI.</FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </CardContent>
-            </Card>
-          )}
+                <Card className="border-primary/50">
+                  <CardHeader className="bg-primary/5">
+                    <CardTitle className="flex items-center text-primary">
+                      <Bot className="w-5 h-5 mr-2" />
+                      Browse AI Configuration
+                    </CardTitle>
+                    <CardDescription>Required credentials for using the Browse AI extraction engine.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4 mt-4">
+                    <FormField
+                      control={form.control}
+                      name="browseAiApiKey"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="flex items-center"><Key className="w-3 h-3 mr-1" /> API Key</FormLabel>
+                          <FormControl>
+                            <Input type="password" placeholder="••••••••••••••••" {...field} data-testid="input-browse-api-key" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="browseAiRobotId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="flex items-center"><Bot className="w-3 h-3 mr-1" /> Robot ID</FormLabel>
+                          <FormControl>
+                            <Input placeholder="e.g. 5d7f8..." {...field} data-testid="input-browse-robot-id" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="browseAiWebhookSecret"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="flex items-center"><Shield className="w-3 h-3 mr-1" /> Webhook Secret</FormLabel>
+                          <FormControl>
+                            <Input type="password" placeholder="••••••••••••••••" {...field} data-testid="input-browse-webhook-secret" />
+                          </FormControl>
+                          <FormDescription>Used to verify incoming webhook requests from Browse AI.</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </CardContent>
+                </Card>
+              )}
 
           <Card>
             <CardHeader>
