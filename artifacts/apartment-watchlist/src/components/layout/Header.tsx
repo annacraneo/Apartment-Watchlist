@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "wouter";
-import { Bell, Search, Settings } from "lucide-react";
+import { Bell, Search, Settings, ExternalLink } from "lucide-react";
 import { 
   useGetNotifications, 
   useMarkAllNotificationsRead, 
@@ -53,6 +53,15 @@ export function Header() {
             APT.WATCH
           </Link>
           <nav className="hidden md:flex items-center space-x-4 text-sm">
+            <a
+              href="https://finance-hub--annakaravaykina.replit.app"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Finance Hub
+              <ExternalLink className="w-3 h-3" />
+            </a>
             <Link href="/settings" className="text-muted-foreground hover:text-foreground transition-colors" data-testid="link-settings">Settings</Link>
           </nav>
         </div>
