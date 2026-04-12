@@ -678,7 +678,6 @@ export default function Home() {
                   const pc = priceHistoryMap.get(listing.id);
                   const pcd = pc ? parsePriceChange(pc) : null;
                   const isSelected = selectedIds.has(listing.id);
-                  const photoCount = (() => { try { return (JSON.parse(listing.allImageUrls || "[]") as unknown[]).length; } catch { return 0; } })();
                   const streetAddress = stripBorough(listing.address || listing.title || "");
                   const borough = listing.neighborhood || (() => { const m = (listing.address || "").match(/\(([^)]+)\)\s*$/); return m ? m[1] : null; })();
 
@@ -688,15 +687,12 @@ export default function Home() {
                       className={`group flex flex-col rounded-2xl border bg-card overflow-hidden transition-all duration-200 hover:shadow-xl hover:shadow-black/30 hover:-translate-y-0.5 ${isSelected ? "border-primary/50 ring-1 ring-primary/30" : "border-border hover:border-border/80"}`}
                       data-testid={`card-listing-${listing.id}`}
                     >
-                      {/* ── Photo hero ── */}
-                      <div className="relative aspect-[16/10] overflow-hidden bg-muted/40">
-                        <CardImage src={listing.mainImageUrl} />
+                      {/* ── Card content ── */}
+                      <div className="flex flex-col flex-1 p-4 gap-3">
 
-                        {/* Gradient overlay at bottom of image */}
-                        <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/60 to-transparent" />
-
-                        {/* Top-right: checkbox */}
-                        <div className="absolute top-2.5 right-2.5 z-10">
+                        {/* Top row: checkbox + status */}
+                        <div className="flex items-center justify-between">
+                          <StatusBadge status={listing.listingStatus} />
                           <Checkbox
                             checked={isSelected}
                             onCheckedChange={(checked) => {
@@ -707,26 +703,9 @@ export default function Home() {
                               });
                             }}
                             aria-label={`Select listing ${listing.id}`}
-                            className="opacity-0 group-hover:opacity-100 transition-opacity data-[state=checked]:opacity-100 bg-black/40 border-white/50"
+                            className="opacity-0 group-hover:opacity-100 transition-opacity data-[state=checked]:opacity-100"
                           />
                         </div>
-
-                        {/* Bottom-left: status badge */}
-                        <div className="absolute bottom-2.5 left-3 z-10">
-                          <StatusBadge status={listing.listingStatus} />
-                        </div>
-
-                        {/* Bottom-right: photo count */}
-                        {photoCount > 0 && (
-                          <div className="absolute bottom-2.5 right-3 z-10 flex items-center gap-1 bg-black/60 backdrop-blur-sm text-white text-xs font-medium rounded-lg px-2 py-1">
-                            <Camera className="w-3 h-3" />
-                            {photoCount}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* ── Card content ── */}
-                      <div className="flex flex-col flex-1 p-4 gap-3">
 
                         {/* Price row */}
                         <div className="flex items-start justify-between gap-2">
