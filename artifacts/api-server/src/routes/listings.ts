@@ -395,6 +395,42 @@ router.get("/listings/:id/snapshots", async (req, res): Promise<void> => {
   res.json(snapshots);
 });
 
+// POST /listings/:id/price-history  — manually log a historical price change
+router.post("/listings/:id/price-history", async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    res.status(400).json({ error: "Invalid listing id" });
+    return;
+  }
+
+  const { oldPrice, newPrice, changedAt } = req.body as Record<string, string | undefined>;
+  if (!oldPrice || !newPrice || typeof oldPrice !== "string" || typeof newPrice !== "string") {
+    res.status(400).json({ error: "oldPrice and newPrice are required strings" });
+    return;
+  }
+
+  const oldNum = Number(oldPrice.replace(/[^0-9.]/g, ""));
+  const newNum = Number(newPrice.replace(/[^0-9.]/g, ""));
+  const changeType = newNum < oldNum ? "price_drop" : "price_increase";
+
+  const changedAtDate = changedAt ? new Date(changedAt) : new Date();
+
+  const [inserted] = await db
+    .insert(listingChangesTable)
+    .values({
+      listingId: id,
+      fieldName: "currentPrice",
+      oldValue: oldPrice,
+      newValue: newPrice,
+      changeType,
+      changedAt: changedAtDate,
+    })
+    .returning();
+
+  logger.info({ listingId: id, changeType, oldPrice, newPrice, changedAt: changedAtDate }, "Manual price change recorded");
+  res.json(inserted);
+});
+
 // POST /listings/bulk-delete
 router.post("/listings/bulk-delete", async (req, res): Promise<void> => {
   const parsed = BulkDeleteListingsBody.safeParse(req.body);
