@@ -84,6 +84,11 @@ function stripBorough(address: string): string {
   return address.replace(/\s*\([^)]+\)\s*$/, "").trim();
 }
 
+function truncateAtSecondComma(address: string): string {
+  const parts = address.split(",");
+  return parts.slice(0, 2).join(",").trim();
+}
+
 function streetViewUrl(address: string, lat?: string | null, lng?: string | null): string {
   if (lat && lng) {
     return `https://www.google.com/maps?q=${encodeURIComponent(stripBorough(address))}&layer=c&cbll=${lat},${lng}`;
@@ -668,7 +673,7 @@ export default function Home() {
                         <TableCell className="font-medium">
                           <div className="flex items-center gap-1">
                             <span className="truncate max-w-[200px]" title={listing.address || listing.title || listing.listingUrl}>
-                              {stripBorough(listing.address || listing.title || listing.listingUrl || "")}
+                              {truncateAtSecondComma(stripBorough(listing.address || listing.title || listing.listingUrl || ""))}
                             </span>
                             {(listing.address || listing.title) && (
                               <CopyText text={stripBorough(listing.address || listing.title || "")} />
@@ -805,7 +810,7 @@ export default function Home() {
                   const pc = priceHistoryMap.get(listing.id);
                   const pcd = pc ? parsePriceChange(pc) : null;
                   const isSelected = selectedIds.has(listing.id);
-                  const streetAddress = stripBorough(listing.address || listing.title || "");
+                  const streetAddress = truncateAtSecondComma(stripBorough(listing.address || listing.title || ""));
                   const borough = listing.neighborhood || (() => { const m = (listing.address || "").match(/\(([^)]+)\)\s*$/); return m ? m[1] : null; })();
 
                   return (
