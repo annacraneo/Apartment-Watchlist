@@ -2,7 +2,7 @@ import * as cheerio from "cheerio";
 import { emptyNormalized, extractJsonLd, normalizeWhitespace, type NormalizedListing } from "./shared.js";
 
 export function isCentris(url: string): boolean {
-  return /centris\.com/i.test(url);
+  return /centris\.(ca|com)/i.test(url);
 }
 
 export function parseCentris(html: string, url: string): NormalizedListing {
