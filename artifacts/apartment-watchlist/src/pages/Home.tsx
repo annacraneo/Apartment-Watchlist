@@ -260,7 +260,6 @@ function LogPriceChangeDialog({
       >
         <TrendingDown className="w-3.5 h-3.5" />
       </Button>
-
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
@@ -951,13 +950,12 @@ export default function Home() {
                             <p className="text-sm font-semibold tabular-nums">{fmt(listing.condoFees)}</p>
                           </div>
                           <div className="rounded-lg bg-muted/40 px-3 py-2">
-                            <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Taxes / mo</p>
+                            <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Tax</p>
                             <p className="text-sm font-semibold tabular-nums">{toMonthly(listing.taxes)}</p>
                           </div>
                         </div>
 
                       </div>
-
                       {/* ── Footer ── */}
                       <div className="px-4 py-2.5 border-t border-border/50 flex items-center justify-between bg-muted/10">
                         <span className="text-[11px] text-muted-foreground">{timeAgo(listing.updatedAt)}</span>
