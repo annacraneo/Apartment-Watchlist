@@ -1,0 +1,177 @@
+import { db } from "@workspace/db";
+import {
+  listingsTable,
+  listingSnapshotsTable,
+  listingChangesTable,
+  notificationsTable,
+} from "@workspace/db";
+import { eq, desc } from "drizzle-orm";
+import { logger } from "../lib/logger.js";
+import { scrapeUrl } from "./scraper.js";
+import { diffListings, changesToInserts } from "./diffEngine.js";
+import { computePriceDelta } from "../parsers/shared.js";
+
+export interface CheckResult {
+  success: boolean;
+  changesDetected: number;
+  changes: typeof listingChangesTable.$inferSelect[];
+  error?: string;
+}
+
+export async function checkListing(listingId: number): Promise<CheckResult> {
+  const [listing] = await db
+    .select()
+    .from(listingsTable)
+    .where(eq(listingsTable.id, listingId));
+
+  if (!listing) {
+    return { success: false, changesDetected: 0, changes: [], error: "Listing not found" };
+  }
+
+  logger.info({ listingId, url: listing.listingUrl }, "Checking listing");
+
+  const scrapeResult = await scrapeUrl(listing.listingUrl);
+
+  // Record snapshot
+  await db.insert(listingSnapshotsTable).values({
+    listingId,
+    extractedData: scrapeResult.data ? JSON.stringify(scrapeResult.data) : null,
+    listingStatus: scrapeResult.data?.listingStatus || null,
+    currentPrice: scrapeResult.data?.currentPrice || null,
+    fetchSuccess: scrapeResult.success,
+    errorMessage: scrapeResult.errorMessage,
+  });
+
+  if (!scrapeResult.success || !scrapeResult.data) {
+    // Mark as unavailable
+    await db
+      .update(listingsTable)
+      .set({ listingStatus: "unavailable", lastCheckedAt: new Date() })
+      .where(eq(listingsTable.id, listingId));
+
+    // Create notification if it was previously not unavailable
+    if (listing.listingStatus !== "unavailable") {
+      await createNotification(
+        listingId,
+        "unavailable",
+        `Listing "${listing.title || listing.listingUrl}" is no longer reachable: ${scrapeResult.errorMessage}`,
+      );
+    }
+
+    return {
+      success: false,
+      changesDetected: 0,
+      changes: [],
+      error: scrapeResult.errorMessage || "Fetch failed",
+    };
+  }
+
+  // Compare with previous state
+  const previous: Record<string, unknown> = { ...listing };
+  const current: Record<string, unknown> = { ...scrapeResult.data };
+
+  const detectedChanges = diffListings(previous, current);
+
+  let insertedChanges: typeof listingChangesTable.$inferSelect[] = [];
+
+  if (detectedChanges.length > 0) {
+    const inserts = changesToInserts(listingId, detectedChanges);
+    insertedChanges = await db.insert(listingChangesTable).values(inserts).returning();
+    logger.info({ listingId, changes: detectedChanges.length }, "Changes detected");
+
+    // Create notifications for significant changes
+    for (const change of detectedChanges) {
+      if (change.changeType === "price_drop") {
+        await createNotification(
+          listingId,
+          "price_drop",
+          `Price dropped for "${listing.title || listing.listingUrl}": ${change.oldValue} → ${change.newValue}`,
+        );
+      } else if (change.changeType === "price_increase") {
+        await createNotification(
+          listingId,
+          "price_increase",
+          `Price increased for "${listing.title || listing.listingUrl}": ${change.oldValue} → ${change.newValue}`,
+        );
+      } else if (change.changeType === "status_change" || change.changeType === "removed" || change.changeType === "restored") {
+        await createNotification(
+          listingId,
+          change.changeType,
+          `Status changed for "${listing.title || listing.listingUrl}": ${change.oldValue} → ${change.newValue}`,
+        );
+      }
+    }
+  }
+
+  // Update listing with new extracted data
+  const newData = scrapeResult.data;
+  const previousPrice = listing.currentPrice;
+  const newPrice = newData.currentPrice;
+
+  await db
+    .update(listingsTable)
+    .set({
+      sourceSite: newData.sourceSite ?? listing.sourceSite,
+      title: newData.title ?? listing.title,
+      address: newData.address ?? listing.address,
+      neighborhood: newData.neighborhood ?? listing.neighborhood,
+      city: newData.city ?? listing.city,
+      province: newData.province ?? listing.province,
+      postalCode: newData.postalCode ?? listing.postalCode,
+      latitude: newData.latitude ?? listing.latitude,
+      longitude: newData.longitude ?? listing.longitude,
+      previousPrice: previousPrice,
+      currentPrice: newPrice ?? listing.currentPrice,
+      priceDelta: computePriceDelta(newPrice, previousPrice),
+      currency: newData.currency ?? listing.currency,
+      bedrooms: newData.bedrooms ?? listing.bedrooms,
+      bathrooms: newData.bathrooms ?? listing.bathrooms,
+      squareFeet: newData.squareFeet ?? listing.squareFeet,
+      propertyType: newData.propertyType ?? listing.propertyType,
+      floor: newData.floor ?? listing.floor,
+      yearBuilt: newData.yearBuilt ?? listing.yearBuilt,
+      condoFees: newData.condoFees ?? listing.condoFees,
+      taxes: newData.taxes ?? listing.taxes,
+      listingStatus: newData.listingStatus ?? listing.listingStatus,
+      daysOnMarket: newData.daysOnMarket ?? listing.daysOnMarket,
+      description: newData.description ?? listing.description,
+      brokerName: newData.brokerName ?? listing.brokerName,
+      brokerage: newData.brokerage ?? listing.brokerage,
+      mainImageUrl: newData.mainImageUrl ?? listing.mainImageUrl,
+      allImageUrls: newData.allImageUrls ?? listing.allImageUrls,
+      rawData: newData.rawData ?? listing.rawData,
+      lastCheckedAt: new Date(),
+    })
+    .where(eq(listingsTable.id, listingId));
+
+  return {
+    success: true,
+    changesDetected: insertedChanges.length,
+    changes: insertedChanges,
+  };
+}
+
+async function createNotification(listingId: number, type: string, message: string) {
+  try {
+    await db.insert(notificationsTable).values({ listingId, type, message });
+  } catch (err) {
+    logger.error({ listingId, type, err }, "Failed to create notification");
+  }
+}
+
+export async function checkAllListings(): Promise<{ checked: number; totalChanges: number }> {
+  const listings = await db
+    .select()
+    .from(listingsTable)
+    .where(eq(listingsTable.hidden, false));
+
+  let totalChanges = 0;
+  for (const listing of listings) {
+    const result = await checkListing(listing.id);
+    totalChanges += result.changesDetected;
+    // Small delay to be polite
+    await new Promise((r) => setTimeout(r, 500));
+  }
+
+  return { checked: listings.length, totalChanges };
+}

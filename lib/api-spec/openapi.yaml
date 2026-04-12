@@ -3,20 +3,30 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Apartment Watchlist API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: listings
+    description: Listing management
+  - name: notifications
+    description: In-app notifications
+  - name: settings
+    description: App configuration
+  - name: dashboard
+    description: Dashboard summary
+  - name: browse-ai
+    description: Browse AI webhook integration
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +34,350 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /listings:
+    get:
+      operationId: getListings
+      tags: [listings]
+      summary: List all tracked listings
+      parameters:
+        - name: source
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: status
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: interestLevel
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: hasPriceDrop
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: archived
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: search
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: sortBy
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: sortDir
+          in: query
+          schema:
+            type: ["string", "null"]
+      responses:
+        "200":
+          description: List of listings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Listing"
+
+    post:
+      operationId: createListing
+      tags: [listings]
+      summary: Add a new listing by URL
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateListingBody"
+      responses:
+        "201":
+          description: Listing created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Listing"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Duplicate listing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /listings/check-all:
+    post:
+      operationId: checkAllListings
+      tags: [listings]
+      summary: Trigger re-check for all non-archived listings
+      responses:
+        "200":
+          description: Check initiated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckAllResponse"
+
+  /listings/{id}:
+    get:
+      operationId: getListing
+      tags: [listings]
+      summary: Get a single listing
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Listing detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Listing"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    patch:
+      operationId: updateListing
+      tags: [listings]
+      summary: Update user-managed fields
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateListingBody"
+      responses:
+        "200":
+          description: Updated listing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Listing"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    delete:
+      operationId: deleteListing
+      tags: [listings]
+      summary: Delete a listing
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /listings/{id}/check:
+    post:
+      operationId: checkListing
+      tags: [listings]
+      summary: Manually re-check a single listing
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Check result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckListingResponse"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /listings/{id}/changes:
+    get:
+      operationId: getListingChanges
+      tags: [listings]
+      summary: Get change history for a listing
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Change history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ListingChange"
+
+  /listings/{id}/snapshots:
+    get:
+      operationId: getListingSnapshots
+      tags: [listings]
+      summary: Get snapshots for a listing
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Snapshots
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ListingSnapshot"
+
+  /notifications:
+    get:
+      operationId: getNotifications
+      tags: [notifications]
+      summary: Get all notifications
+      parameters:
+        - name: unreadOnly
+          in: query
+          schema:
+            type: ["string", "null"]
+      responses:
+        "200":
+          description: Notifications
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Notification"
+
+  /notifications/{id}/read:
+    patch:
+      operationId: markNotificationRead
+      tags: [notifications]
+      summary: Mark a notification as read
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Updated notification
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Notification"
+
+  /notifications/read-all:
+    post:
+      operationId: markAllNotificationsRead
+      tags: [notifications]
+      summary: Mark all notifications as read
+      responses:
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /settings:
+    get:
+      operationId: getSettings
+      tags: [settings]
+      summary: Get current settings
+      responses:
+        "200":
+          description: Settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppSettings"
+
+    put:
+      operationId: updateSettings
+      tags: [settings]
+      summary: Update settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AppSettings"
+      responses:
+        "200":
+          description: Updated settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppSettings"
+
+  /browse-ai/webhook:
+    post:
+      operationId: browseAiWebhook
+      tags: [browse-ai]
+      summary: Receive Browse AI webhook payload
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: Acknowledged
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /dashboard/summary:
+    get:
+      operationId: getDashboardSummary
+      tags: [dashboard]
+      summary: Get aggregated dashboard stats
+      responses:
+        "200":
+          description: Dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +388,308 @@ components:
       required:
         - status
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: ["string", "null"]
+      required:
+        - success
+
+    Listing:
+      type: object
+      properties:
+        id:
+          type: integer
+        listingUrl:
+          type: string
+        sourceSite:
+          type: ["string", "null"]
+        externalListingId:
+          type: ["string", "null"]
+        title:
+          type: ["string", "null"]
+        address:
+          type: ["string", "null"]
+        neighborhood:
+          type: ["string", "null"]
+        city:
+          type: ["string", "null"]
+        province:
+          type: ["string", "null"]
+        postalCode:
+          type: ["string", "null"]
+        latitude:
+          type: ["string", "null"]
+        longitude:
+          type: ["string", "null"]
+        currentPrice:
+          type: ["string", "null"]
+        previousPrice:
+          type: ["string", "null"]
+        priceDelta:
+          type: ["string", "null"]
+        currency:
+          type: ["string", "null"]
+        bedrooms:
+          type: ["string", "null"]
+        bathrooms:
+          type: ["string", "null"]
+        squareFeet:
+          type: ["string", "null"]
+        propertyType:
+          type: ["string", "null"]
+        floor:
+          type: ["string", "null"]
+        yearBuilt:
+          type: ["string", "null"]
+        condoFees:
+          type: ["string", "null"]
+        taxes:
+          type: ["string", "null"]
+        listingStatus:
+          type: ["string", "null"]
+        daysOnMarket:
+          type: ["string", "null"]
+        description:
+          type: ["string", "null"]
+        brokerName:
+          type: ["string", "null"]
+        brokerage:
+          type: ["string", "null"]
+        mainImageUrl:
+          type: ["string", "null"]
+        allImageUrls:
+          type: ["string", "null"]
+        personalRating:
+          type: ["integer", "null"]
+        interestLevel:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        tags:
+          type: ["string", "null"]
+        hidden:
+          type: boolean
+        favorite:
+          type: boolean
+        lastCheckedAt:
+          type: ["string", "null"]
+        firstSavedAt:
+          type: string
+        updatedAt:
+          type: string
+        rawData:
+          type: ["string", "null"]
+      required:
+        - id
+        - listingUrl
+        - hidden
+        - favorite
+        - firstSavedAt
+        - updatedAt
+
+    CreateListingBody:
+      type: object
+      properties:
+        listingUrl:
+          type: string
+        notes:
+          type: ["string", "null"]
+        personalRating:
+          type: ["integer", "null"]
+        tags:
+          type: ["string", "null"]
+        interestLevel:
+          type: ["string", "null"]
+      required:
+        - listingUrl
+
+    UpdateListingBody:
+      type: object
+      properties:
+        personalRating:
+          type: ["integer", "null"]
+        interestLevel:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        tags:
+          type: ["string", "null"]
+        hidden:
+          type: ["boolean", "null"]
+        favorite:
+          type: ["boolean", "null"]
+
+    CheckListingResponse:
+      type: object
+      properties:
+        listing:
+          $ref: "#/components/schemas/Listing"
+        changesDetected:
+          type: integer
+        changes:
+          type: array
+          items:
+            $ref: "#/components/schemas/ListingChange"
+      required:
+        - listing
+        - changesDetected
+        - changes
+
+    CheckAllResponse:
+      type: object
+      properties:
+        checked:
+          type: integer
+        totalChanges:
+          type: integer
+      required:
+        - checked
+        - totalChanges
+
+    ListingChange:
+      type: object
+      properties:
+        id:
+          type: integer
+        listingId:
+          type: integer
+        changedAt:
+          type: string
+        fieldName:
+          type: string
+        oldValue:
+          type: ["string", "null"]
+        newValue:
+          type: ["string", "null"]
+        changeType:
+          type: string
+      required:
+        - id
+        - listingId
+        - changedAt
+        - fieldName
+        - changeType
+
+    ListingSnapshot:
+      type: object
+      properties:
+        id:
+          type: integer
+        listingId:
+          type: integer
+        checkedAt:
+          type: string
+        extractedData:
+          type: ["string", "null"]
+        listingStatus:
+          type: ["string", "null"]
+        currentPrice:
+          type: ["string", "null"]
+        fetchSuccess:
+          type: boolean
+        errorMessage:
+          type: ["string", "null"]
+      required:
+        - id
+        - listingId
+        - checkedAt
+        - fetchSuccess
+
+    Notification:
+      type: object
+      properties:
+        id:
+          type: integer
+        listingId:
+          type: ["integer", "null"]
+        type:
+          type: string
+        message:
+          type: string
+        read:
+          type: boolean
+        createdAt:
+          type: string
+        listingTitle:
+          type: ["string", "null"]
+        listingUrl:
+          type: ["string", "null"]
+      required:
+        - id
+        - type
+        - message
+        - read
+        - createdAt
+
+    AppSettings:
+      type: object
+      properties:
+        checkIntervalHours:
+          type: integer
+        extractionMode:
+          type: string
+        browseAiApiKey:
+          type: ["string", "null"]
+        browseAiRobotId:
+          type: ["string", "null"]
+        browseAiWebhookSecret:
+          type: ["string", "null"]
+        centrisExtractionMode:
+          type: ["string", "null"]
+        realtorExtractionMode:
+          type: ["string", "null"]
+        notifyOnPriceDrop:
+          type: boolean
+        notifyOnStatusChange:
+          type: boolean
+        notifyOnUnavailable:
+          type: boolean
+      required:
+        - checkIntervalHours
+        - extractionMode
+        - notifyOnPriceDrop
+        - notifyOnStatusChange
+        - notifyOnUnavailable
+
+    DashboardSummary:
+      type: object
+      properties:
+        totalListings:
+          type: integer
+        activeListings:
+          type: integer
+        priceDropsToday:
+          type: integer
+        statusChangesToday:
+          type: integer
+        uncheckedListings:
+          type: integer
+        unavailableListings:
+          type: integer
+        unreadNotifications:
+          type: integer
+        recentChanges:
+          type: array
+          items:
+            $ref: "#/components/schemas/ListingChange"
+      required:
+        - totalListings
+        - activeListings
+        - priceDropsToday
+        - statusChangesToday
+        - uncheckedListings
+        - unavailableListings
+        - unreadNotifications
+        - recentChanges

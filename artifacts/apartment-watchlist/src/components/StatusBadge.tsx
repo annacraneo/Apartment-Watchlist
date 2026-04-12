@@ -1,0 +1,35 @@
+import React from "react";
+import { Badge } from "@/components/ui/badge";
+
+export function StatusBadge({ status }: { status: string | null | undefined }) {
+  if (!status) return null;
+
+  const normalizedStatus = status.toLowerCase();
+  
+  let variant: "default" | "secondary" | "destructive" | "outline" = "default";
+  let className = "";
+
+  switch (normalizedStatus) {
+    case "active":
+      className = "bg-green-500/10 text-green-500 hover:bg-green-500/20 border-green-500/20";
+      break;
+    case "sold":
+      className = "bg-gray-500/10 text-gray-500 hover:bg-gray-500/20 border-gray-500/20";
+      break;
+    case "pending":
+      className = "bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500/20 border-yellow-500/20";
+      break;
+    case "unavailable":
+    case "removed":
+      className = "bg-red-500/10 text-red-500 hover:bg-red-500/20 border-red-500/20";
+      break;
+    default:
+      className = "bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 border-blue-500/20";
+  }
+
+  return (
+    <Badge variant={variant} className={className} data-testid={`status-badge-${normalizedStatus}`}>
+      {status.toUpperCase()}
+    </Badge>
+  );
+}
