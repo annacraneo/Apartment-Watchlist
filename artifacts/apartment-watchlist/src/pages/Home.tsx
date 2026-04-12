@@ -553,7 +553,7 @@ export default function Home() {
                         <TableCell className="font-medium">
                           <div className="flex items-center gap-1">
                             <span className="truncate max-w-[200px]" title={listing.address || listing.title || listing.listingUrl}>
-                              {listing.address || listing.title || listing.listingUrl}
+                              {stripBorough(listing.address || listing.title || listing.listingUrl || "")}
                             </span>
                             {(listing.address || listing.title) && (
                               <CopyText text={stripBorough(listing.address || listing.title || "")} />
