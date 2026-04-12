@@ -25,7 +25,7 @@ import {
   LayoutGrid,
   Train,
 } from "lucide-react";
-import { formatDistanceToNow, format } from "date-fns";
+import { format, differenceInMinutes, differenceInHours, differenceInDays } from "date-fns";
 
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -70,6 +70,20 @@ function toMonthly(yearly: string | null | undefined): string {
   const num = parseFloat(yearly.replace(/[^0-9.]/g, ""));
   if (isNaN(num) || num === 0) return "—";
   return `$${Math.round(num / 12).toLocaleString("en-CA")}/mo`;
+}
+
+function timeAgo(dateStr: string | null | undefined): string {
+  if (!dateStr) return "—";
+  const d = new Date(dateStr);
+  const mins = differenceInMinutes(new Date(), d);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}min ago`;
+  const hrs = differenceInHours(new Date(), d);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = differenceInDays(new Date(), d);
+  if (days < 7) return `${days}d ago`;
+  if (days < 365) return format(d, "MMM d");
+  return format(d, "MMM d, yy");
 }
 
 function parsePriceChange(change: PriceChange) {
@@ -615,9 +629,7 @@ export default function Home() {
 
                         {/* Last checked */}
                         <TableCell className="text-right text-muted-foreground tabular-nums">
-                          {listing.updatedAt
-                            ? formatDistanceToNow(new Date(listing.updatedAt), { addSuffix: true })
-                            : "—"}
+                          {timeAgo(listing.updatedAt)}
                         </TableCell>
                       </TableRow>
                     );
@@ -763,7 +775,7 @@ export default function Home() {
                             <span className="bg-muted/40 rounded px-1.5 py-0.5">{listing.parkingInfo}</span>
                           )}
                           {listing.updatedAt && (
-                            <span>{formatDistanceToNow(new Date(listing.updatedAt), { addSuffix: true })}</span>
+                            <span>{timeAgo(listing.updatedAt)}</span>
                           )}
                         </div>
                         <div className="flex items-center gap-0.5">
