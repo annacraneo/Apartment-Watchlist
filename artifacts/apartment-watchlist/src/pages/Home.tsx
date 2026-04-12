@@ -30,6 +30,7 @@ import {
   Building2,
   Camera,
   TrendingDown,
+  Map as MapIcon,
 } from "lucide-react";
 import { format, differenceInMinutes, differenceInHours, differenceInDays } from "date-fns";
 
@@ -81,6 +82,13 @@ interface PriceChange {
 
 function stripBorough(address: string): string {
   return address.replace(/\s*\([^)]+\)\s*$/, "").trim();
+}
+
+function streetViewUrl(address: string, lat?: string | null, lng?: string | null): string {
+  if (lat && lng) {
+    return `https://www.google.com/maps?q=${encodeURIComponent(stripBorough(address))}&layer=c&cbll=${lat},${lng}`;
+  }
+  return `https://www.google.com/maps/search/${encodeURIComponent(stripBorough(address))}`;
 }
 
 function toMonthly(yearly: string | null | undefined): string {
@@ -665,6 +673,18 @@ export default function Home() {
                             {(listing.address || listing.title) && (
                               <CopyText text={stripBorough(listing.address || listing.title || "")} />
                             )}
+                            {(listing.address || listing.title) && (
+                              <a
+                                href={streetViewUrl(listing.address || listing.title || "", listing.latitude, listing.longitude)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title="Open in Google Maps Street View"
+                                className="inline-flex text-muted-foreground hover:text-primary transition-colors flex-shrink-0"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <MapIcon className="w-3 h-3" />
+                              </a>
+                            )}
                             {listing.listingUrl && (
                               <a href={listing.listingUrl} target="_blank" rel="noopener noreferrer"
                                 className="inline-flex text-muted-foreground hover:text-primary transition-colors flex-shrink-0"
@@ -847,6 +867,17 @@ export default function Home() {
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <p className="text-sm font-medium leading-snug">{streetAddress || listing.listingUrl}</p>
                             {streetAddress && <CopyText text={streetAddress} />}
+                            {streetAddress && (
+                              <a
+                                href={streetViewUrl(listing.address || listing.title || streetAddress, listing.latitude, listing.longitude)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title="Open in Google Maps Street View"
+                                className="text-muted-foreground hover:text-primary transition-colors"
+                              >
+                                <MapIcon className="w-3 h-3" />
+                              </a>
+                            )}
                             {listing.listingUrl && (
                               <a href={listing.listingUrl} target="_blank" rel="noopener noreferrer"
                                 className="text-muted-foreground hover:text-primary transition-colors">
