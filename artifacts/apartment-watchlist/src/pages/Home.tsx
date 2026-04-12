@@ -110,14 +110,6 @@ export default function Home() {
 
   return (
     <div className="flex-1 p-6 container mx-auto space-y-6">
-      {/* Dashboard Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-card border rounded-lg p-4 flex flex-col items-start" data-testid="stat-card-status">
-          <span className="text-muted-foreground text-xs font-medium tracking-wider uppercase">Status Changes</span>
-          {isLoadingSummary ? <Skeleton className="h-8 w-16 mt-2" /> : <span className="text-3xl font-bold mt-1 text-yellow-500">{summary?.statusChangesToday || 0}</span>}
-        </div>
-      </div>
-
       <div className="bg-card border rounded-lg overflow-hidden flex flex-col">
         {/* Toolbar */}
         <div className="p-4 border-b flex flex-col md:flex-row gap-4 items-start md:items-center justify-between bg-muted/20">
