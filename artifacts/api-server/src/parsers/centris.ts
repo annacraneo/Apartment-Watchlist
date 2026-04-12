@@ -63,15 +63,20 @@ export function parseCentris(html: string, url: string): NormalizedListing {
       const addrEl = $("[class*='address'], [class*='Address']").first();
       if (addrEl.length) result.address = addrEl.text().trim();
     }
-    // Neighbourhood from breadcrumb or neighbourhood div
-    const neighbourhood = $("[class*='neighborhood'], [class*='neighbourhood'], [class*='quartier']").first().text().trim();
-    if (neighbourhood) result.neighborhood = neighbourhood;
-
     // Normalize address — take the last meaningful line (strips "Condo for sale" prefix noise)
     if (result.address) {
       const addrLines = result.address.split(/\n|\r/).map(l => l.trim()).filter(Boolean);
       // The street address is always the last populated line
       result.address = addrLines[addrLines.length - 1] || result.address.trim();
+    }
+
+    // Borough/neighborhood can be parsed from the address text, e.g. Montréal (Mercier/Hochelaga-Maisonneuve)
+    const boroughMatch = result.address?.match(/\(([^)]+)\)\s*$/);
+    if (boroughMatch) result.neighborhood = boroughMatch[1].trim();
+
+    if (!result.neighborhood) {
+      const neighbourhood = $("[class*='neighborhood'], [class*='neighbourhood'], [class*='quartier']").first().text().trim();
+      if (neighbourhood) result.neighborhood = neighbourhood;
     }
 
     // ── 4. Build a carac (feature) dictionary ────────────────────────────────
