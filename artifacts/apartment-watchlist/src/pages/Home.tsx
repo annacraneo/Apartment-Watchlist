@@ -145,10 +145,10 @@ function CopyText({ text }: { text: string }) {
           setTimeout(() => setCopied(false), 1500);
         });
       }}
-      className="ml-1 inline-flex items-center text-muted-foreground hover:text-foreground transition-colors"
+      className="ml-0.5 inline-flex items-center justify-center w-5 h-5 rounded text-foreground/40 hover:text-foreground hover:bg-muted transition-colors"
       title="Copy address"
     >
-      {copied ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
+      {copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
     </button>
   );
 }
@@ -736,17 +736,17 @@ export default function Home() {
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 title="Open in Google Maps Street View"
-                                className="inline-flex text-muted-foreground hover:text-primary transition-colors flex-shrink-0"
+                                className="inline-flex items-center justify-center w-5 h-5 rounded text-foreground/40 hover:text-primary hover:bg-muted transition-colors flex-shrink-0"
                                 onClick={(e) => e.stopPropagation()}
                               >
-                                <MapIcon className="w-3 h-3" />
+                                <MapIcon className="w-3.5 h-3.5" />
                               </a>
                             )}
                             {listing.listingUrl && (
                               <a href={listing.listingUrl} target="_blank" rel="noopener noreferrer"
-                                className="inline-flex text-muted-foreground hover:text-primary transition-colors flex-shrink-0"
+                                className="inline-flex items-center justify-center w-5 h-5 rounded text-foreground/40 hover:text-primary hover:bg-muted transition-colors flex-shrink-0"
                                 onClick={(e) => e.stopPropagation()}>
-                                <ExternalLink className="w-3 h-3" />
+                                <ExternalLink className="w-3.5 h-3.5" />
                               </a>
                             )}
                           </div>
@@ -952,15 +952,15 @@ export default function Home() {
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 title="Open in Google Maps Street View"
-                                className="text-muted-foreground hover:text-primary transition-colors"
+                                className="inline-flex items-center justify-center w-5 h-5 rounded text-foreground/40 hover:text-primary hover:bg-muted transition-colors"
                               >
-                                <MapIcon className="w-3 h-3" />
+                                <MapIcon className="w-3.5 h-3.5" />
                               </a>
                             )}
                             {listing.listingUrl && (
                               <a href={listing.listingUrl} target="_blank" rel="noopener noreferrer"
-                                className="text-muted-foreground hover:text-primary transition-colors">
-                                <ExternalLink className="w-3 h-3" />
+                                className="inline-flex items-center justify-center w-5 h-5 rounded text-foreground/40 hover:text-primary hover:bg-muted transition-colors">
+                                <ExternalLink className="w-3.5 h-3.5" />
                               </a>
                             )}
                           </div>
