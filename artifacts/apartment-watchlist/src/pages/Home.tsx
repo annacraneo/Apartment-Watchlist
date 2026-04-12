@@ -1,18 +1,18 @@
-import React, { useState, useCallback } from "react";
-import { 
-  useGetListings, 
+import React, { useState, useMemo } from "react";
+import {
+  useGetListings,
   useGetDashboardSummary,
   useCheckAllListings,
   useUpdateListing,
   useDeleteListing,
   getGetListingsQueryKey,
   getGetDashboardSummaryQueryKey,
-  type GetListingsParams
+  type GetListingsParams,
 } from "@workspace/api-client-react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { 
-  Search, 
-  RefreshCw, 
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  Search,
+  RefreshCw,
   MapPin,
   ArrowDown,
   ArrowUp,
@@ -21,31 +21,32 @@ import {
   Check,
   StickyNote,
   ExternalLink,
-  Clock3,
+  LayoutList,
+  LayoutGrid,
+  Train,
 } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, format } from "date-fns";
 
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
-import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -54,19 +55,47 @@ import { useToast } from "@/hooks/use-toast";
 import { AddListingDialog } from "@/components/AddListingDialog";
 import { StatusBadge } from "@/components/StatusBadge";
 
+interface PriceChange {
+  id: number;
+  listingId: number;
+  changedAt: string;
+  fieldName: string;
+  oldValue: string | null;
+  newValue: string | null;
+  changeType: string;
+}
+
+function toMonthly(yearly: string | null | undefined): string {
+  if (!yearly) return "—";
+  const num = parseFloat(yearly.replace(/[^0-9.]/g, ""));
+  if (isNaN(num) || num === 0) return "—";
+  return `$${Math.round(num / 12).toLocaleString("en-CA")}/mo`;
+}
+
+function parsePriceChange(change: PriceChange) {
+  const from = parseFloat(change.oldValue || "0");
+  const to = parseFloat(change.newValue || "0");
+  const delta = Math.abs(to - from);
+  const isDown = change.changeType === "price_drop";
+  return {
+    label: `$${Math.round(delta).toLocaleString("en-CA")}`,
+    isDown,
+    date: format(new Date(change.changedAt), "MMM d"),
+  };
+}
+
 function CopyText({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
-  const handleCopy = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    navigator.clipboard.writeText(text).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    });
-  };
   return (
     <button
-      onClick={handleCopy}
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        navigator.clipboard.writeText(text).then(() => {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+        });
+      }}
       className="ml-1 inline-flex items-center text-muted-foreground hover:text-foreground transition-colors"
       title="Copy address"
     >
@@ -95,26 +124,21 @@ function NotesPopover({ listingId, notes, interestLevel, onSave, isPending }: No
     }
   }, [open, notes, interestLevel]);
 
-  const handleSave = () => {
-    onSave({ notes: localNotes, interestLevel: localInterest });
-    setOpen(false);
-  };
-
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
           variant="ghost"
           size="icon"
-          className="h-7 w-7 text-muted-foreground"
-          title="View notes"
+          className="h-7 w-7 text-muted-foreground hover:text-foreground"
+          title="Notes"
           data-testid={`btn-notes-${listingId}`}
         >
           <StickyNote className="w-3.5 h-3.5" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-72 p-4 space-y-3" align="end">
-          <p className="text-sm font-semibold">Notes</p>
+        <p className="text-sm font-semibold">Notes</p>
         <div className="space-y-1">
           <Label className="text-xs text-muted-foreground">Interest</Label>
           <Select value={localInterest} onValueChange={setLocalInterest}>
@@ -138,11 +162,26 @@ function NotesPopover({ listingId, notes, interestLevel, onSave, isPending }: No
             className="text-sm min-h-[80px]"
           />
         </div>
-        <Button size="sm" className="w-full" onClick={handleSave} disabled={isPending}>
+        <Button size="sm" className="w-full" onClick={() => { onSave({ notes: localNotes, interestLevel: localInterest }); setOpen(false); }} disabled={isPending}>
           Save
         </Button>
       </PopoverContent>
     </Popover>
+  );
+}
+
+function InterestBadge({ level }: { level: string | null | undefined }) {
+  if (!level || level === "none") return null;
+  const cls =
+    level === "high"
+      ? "bg-primary/15 text-primary border-primary/30"
+      : level === "medium"
+      ? "bg-blue-500/15 text-blue-400 border-blue-500/30"
+      : "bg-muted/50 text-muted-foreground border-border";
+  return (
+    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide border ${cls}`}>
+      {level}
+    </span>
   );
 }
 
@@ -157,6 +196,7 @@ export default function Home() {
   const [sortBy, setSortBy] = useState("updatedAt");
   const [sortDir, setSortDir] = useState("desc");
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [viewMode, setViewMode] = useState<"table" | "card">("table");
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -174,31 +214,55 @@ export default function Home() {
     sortDir,
   };
 
-  const { data: listings, isLoading: isLoadingListings } = useGetListings(queryParams, {
+  const { data: allListings, isLoading: isLoadingListings } = useGetListings(queryParams, {
     query: {
       queryKey: getGetListingsQueryKey(queryParams),
       refetchInterval: 60000,
-    }
+    },
   });
+
+  const { data: priceHistory } = useQuery<PriceChange[]>({
+    queryKey: ["recent-price-changes"],
+    queryFn: async () => {
+      const res = await fetch("/api/listings/recent-price-changes?days=60");
+      if (!res.ok) throw new Error("Failed to fetch price changes");
+      return res.json();
+    },
+    refetchInterval: 60000,
+  });
+
+  const priceHistoryMap = useMemo(() => {
+    const map = new Map<number, PriceChange>();
+    (priceHistory ?? []).forEach((c) => map.set(c.listingId, c));
+    return map;
+  }, [priceHistory]);
+
+  const listings = useMemo(() => {
+    if (!allListings) return [];
+    return allListings.filter((l) => {
+      if (borough !== "all" && l.neighborhood !== borough) return false;
+      if (parkingInfo !== "all" && l.parkingInfo !== parkingInfo) return false;
+      if (condoType !== "all" && l.propertyType !== condoType) return false;
+      return true;
+    });
+  }, [allListings, borough, parkingInfo, condoType]);
 
   const checkAll = useCheckAllListings({
     mutation: {
       onSuccess: (data) => {
-        toast({ 
-          title: "Refresh complete", 
-          description: `Checked ${data.checked} listings. Found ${data.totalChanges} changes.` 
-        });
+        toast({ title: "Refresh complete", description: `Checked ${data.checked} listings. Found ${data.totalChanges} changes.` });
         queryClient.invalidateQueries({ queryKey: getGetListingsQueryKey() });
         queryClient.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
-      }
-    }
+        queryClient.invalidateQueries({ queryKey: ["recent-price-changes"] });
+      },
+    },
   });
 
   const updateListing = useUpdateListing({
     mutation: {
       onSuccess: () => queryClient.invalidateQueries({ queryKey: getGetListingsQueryKey() }),
       onError: () => toast({ title: "Failed to save", variant: "destructive" }),
-    }
+    },
   });
 
   const deleteListing = useDeleteListing({
@@ -209,7 +273,7 @@ export default function Home() {
         toast({ title: "Listing deleted" });
       },
       onError: () => toast({ title: "Failed to delete listing", variant: "destructive" }),
-    }
+    },
   });
 
   const bulkDelete = useMutation({
@@ -231,19 +295,46 @@ export default function Home() {
     onError: () => toast({ title: "Bulk delete failed", variant: "destructive" }),
   });
 
-  const fmt = (val: string | null | undefined, suffix = "") =>
-    val ? `${val}${suffix}` : "—";
+  const fmt = (val: string | null | undefined) => val || "—";
+
+  const notesProps = (listing: (typeof listings)[0]) => ({
+    listingId: listing.id,
+    notes: listing.notes,
+    interestLevel: listing.interestLevel,
+    isPending: updateListing.isPending,
+    onSave: (data: { notes: string; interestLevel: string }) =>
+      updateListing.mutate({
+        id: listing.id,
+        data: { notes: data.notes || null, interestLevel: data.interestLevel === "none" ? null : data.interestLevel || null },
+      }),
+  });
+
+  const boroughOptions = [...new Set((allListings ?? []).map((l) => l.neighborhood).filter(Boolean))];
+  const parkingOptions = [...new Set((allListings ?? []).map((l) => l.parkingInfo).filter(Boolean))];
+
+  const EmptyState = () => (
+    <div className="flex flex-col items-center justify-center py-20 text-muted-foreground gap-3">
+      <MapPin className="w-10 h-10 opacity-30" />
+      <p className="text-sm font-medium">No listings found</p>
+      {(debouncedSearch || status !== "all" || borough !== "all" || parkingInfo !== "all" || condoType !== "all") && (
+        <Button variant="outline" size="sm" onClick={() => { setSearch(""); setStatus("all"); setInterestLevel("all"); setBorough("all"); setParkingInfo("all"); setCondoType("all"); }}>
+          Clear filters
+        </Button>
+      )}
+    </div>
+  );
 
   return (
-    <div className="flex-1 p-4 container mx-auto space-y-4">
-      <div className="bg-card border rounded-lg overflow-hidden flex flex-col">
+    <div className="flex-1 p-4 md:p-6 container mx-auto space-y-4 max-w-[1800px]">
+      <div className="bg-card border rounded-xl overflow-hidden flex flex-col shadow-md">
+
         {/* Toolbar */}
-        <div className="p-3 border-b flex flex-col md:flex-row gap-3 items-start md:items-center justify-between bg-muted/20">
+        <div className="px-4 py-3 border-b flex flex-col md:flex-row gap-3 items-start md:items-center justify-between">
           <div className="flex items-center gap-2 flex-1 w-full md:max-w-sm relative">
-            <Search className="w-4 h-4 absolute left-3 text-muted-foreground" />
-            <Input 
-              placeholder="Search address, city, or MLS..." 
-              className="pl-9 bg-background h-8 text-sm"
+            <Search className="w-4 h-4 absolute left-3 text-muted-foreground pointer-events-none" />
+            <Input
+              placeholder="Search address, borough, notes…"
+              className="pl-9 h-9 bg-background text-sm"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               data-testid="input-search-listings"
@@ -251,41 +342,49 @@ export default function Home() {
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             {selectedIds.size > 0 && (
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={() => bulkDelete.mutate(Array.from(selectedIds))}
-                disabled={bulkDelete.isPending}
-                data-testid="btn-bulk-delete"
-              >
-                <Trash2 className="w-4 h-4 mr-1.5" />
+              <Button variant="destructive" size="sm" onClick={() => bulkDelete.mutate(Array.from(selectedIds))} disabled={bulkDelete.isPending} data-testid="btn-bulk-delete">
+                <Trash2 className="w-3.5 h-3.5 mr-1.5" />
                 Delete {selectedIds.size}
               </Button>
             )}
             <AddListingDialog />
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => checkAll.mutate()} 
-              disabled={checkAll.isPending}
-              data-testid="btn-check-all"
-            >
-              <RefreshCw className={`w-4 h-4 mr-1.5 ${checkAll.isPending ? "animate-spin" : ""}`} />
+            <Button variant="outline" size="sm" onClick={() => checkAll.mutate()} disabled={checkAll.isPending} data-testid="btn-check-all">
+              <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${checkAll.isPending ? "animate-spin" : ""}`} />
               Check All
             </Button>
+            <div className="flex items-center rounded-lg border bg-muted/30 p-0.5 gap-0.5">
+              <Button
+                variant={viewMode === "table" ? "secondary" : "ghost"}
+                size="icon"
+                className="h-7 w-7"
+                onClick={() => setViewMode("table")}
+                title="Table view"
+              >
+                <LayoutList className="w-3.5 h-3.5" />
+              </Button>
+              <Button
+                variant={viewMode === "card" ? "secondary" : "ghost"}
+                size="icon"
+                className="h-7 w-7"
+                onClick={() => setViewMode("card")}
+                title="Card view"
+              >
+                <LayoutGrid className="w-3.5 h-3.5" />
+              </Button>
+            </div>
           </div>
         </div>
 
         {/* Filters */}
-        <div className="px-3 py-2 border-b flex flex-wrap gap-3 items-center bg-muted/10 text-sm">
+        <div className="px-4 py-2.5 border-b flex flex-wrap gap-2 items-center bg-muted/10">
           <Select value={status} onValueChange={setStatus}>
             <SelectTrigger className="w-[130px] h-7 text-xs" data-testid="filter-status">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Statuses</SelectItem>
-              <SelectItem value="active">ACTIVE</SelectItem>
-              <SelectItem value="inactive">INACTIVE</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="inactive">Inactive</SelectItem>
             </SelectContent>
           </Select>
 
@@ -307,10 +406,8 @@ export default function Home() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Boroughs</SelectItem>
-              {[...new Set((listings ?? []).map((l) => l.neighborhood).filter(Boolean))].map((item) => (
-                <SelectItem key={item as string} value={item as string}>
-                  {item}
-                </SelectItem>
+              {boroughOptions.map((item) => (
+                <SelectItem key={item as string} value={item as string}>{item}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -321,10 +418,8 @@ export default function Home() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Parking</SelectItem>
-              {[...new Set((listings ?? []).map((l) => l.parkingInfo).filter(Boolean))].map((item) => (
-                <SelectItem key={item as string} value={item as string}>
-                  {item}
-                </SelectItem>
+              {parkingOptions.map((item) => (
+                <SelectItem key={item as string} value={item as string}>{item}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -340,11 +435,7 @@ export default function Home() {
             </SelectContent>
           </Select>
 
-          <Select value={`${sortBy}-${sortDir}`} onValueChange={(v) => {
-            const [by, dir] = v.split("-");
-            setSortBy(by);
-            setSortDir(dir);
-          }}>
+          <Select value={`${sortBy}-${sortDir}`} onValueChange={(v) => { const [by, dir] = v.split("-"); setSortBy(by); setSortDir(dir); }}>
             <SelectTrigger className="w-[170px] h-7 text-xs" data-testid="filter-sort">
               <SelectValue placeholder="Sort By" />
             </SelectTrigger>
@@ -355,231 +446,346 @@ export default function Home() {
               <SelectItem value="firstSavedAt-desc">Recently Added</SelectItem>
             </SelectContent>
           </Select>
-
         </div>
 
-        {/* Table */}
-        <div className="overflow-x-auto">
-          <Table className="text-xs min-w-[1400px]">
-            <TableHeader className="bg-muted/50 sticky top-0">
-              <TableRow>
-                <TableHead className="w-8 px-2">
-                  <Checkbox
-                    checked={listings?.length ? selectedIds.size === listings.length : false}
-                    onCheckedChange={(checked) => {
-                      setSelectedIds(checked ? new Set((listings ?? []).map((listing) => listing.id)) : new Set());
-                    }}
-                    aria-label="Select all"
-                  />
-                </TableHead>
-                <TableHead className="min-w-[200px]">Address</TableHead>
-                <TableHead className="w-24">Price</TableHead>
-                <TableHead className="w-28">Specs</TableHead>
-                <TableHead className="w-24">Sqft</TableHead>
-                <TableHead className="w-20">Status</TableHead>
-                <TableHead className="w-28">Condo Type</TableHead>
-                <TableHead className="w-32">Borough</TableHead>
-                <TableHead className="w-20">Interest</TableHead>
-                <TableHead className="w-32">Parking</TableHead>
-                <TableHead className="w-28">Metro</TableHead>
-                <TableHead className="w-24">Condo Fees</TableHead>
-                <TableHead className="w-24">Taxes</TableHead>
-                <TableHead className="w-16 text-center">Notes</TableHead>
-                <TableHead className="w-10"></TableHead>
-                <TableHead className="w-28 text-right">Last Checked</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoadingListings ? (
-                Array.from({ length: 4 }).map((_, i) => (
-                  <TableRow key={i}>
-                    {Array.from({ length: 16 }).map((_, j) => (
-                      <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>
-                    ))}
-                  </TableRow>
-                ))
-              ) : listings?.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={16} className="h-40 text-center text-muted-foreground">
-                    <div className="flex flex-col items-center justify-center space-y-2">
-                      <MapPin className="w-8 h-8 text-muted" />
-                      <p>No listings found.</p>
-                      {(debouncedSearch || status !== "all" || borough !== "all" || parkingInfo !== "all" || condoType !== "all") && (
-                        <Button variant="link" size="sm" onClick={() => {
-                          setSearch(""); setStatus("all"); setInterestLevel("all");
-                          setBorough("all"); setParkingInfo("all"); setCondoType("all");
-                        }}>Clear Filters</Button>
-                      )}
-                    </div>
-                  </TableCell>
+        {/* ── TABLE VIEW ── */}
+        {viewMode === "table" && (
+          <div className="overflow-x-auto">
+            <Table className="text-xs min-w-[1500px]">
+              <TableHeader className="bg-muted/30 sticky top-0">
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="w-8 px-2">
+                    <Checkbox
+                      checked={listings.length > 0 && selectedIds.size === listings.length}
+                      onCheckedChange={(checked) => setSelectedIds(checked ? new Set(listings.map((l) => l.id)) : new Set())}
+                      aria-label="Select all"
+                    />
+                  </TableHead>
+                  <TableHead className="min-w-[220px]">Address</TableHead>
+                  <TableHead className="w-28">Price</TableHead>
+                  <TableHead className="w-32">Price History</TableHead>
+                  <TableHead className="w-28">Specs</TableHead>
+                  <TableHead className="w-24">Sqft</TableHead>
+                  <TableHead className="w-20">Status</TableHead>
+                  <TableHead className="w-28">Type</TableHead>
+                  <TableHead className="w-32">Borough</TableHead>
+                  <TableHead className="w-20">Interest</TableHead>
+                  <TableHead className="w-32">Parking</TableHead>
+                  <TableHead className="w-28">Metro</TableHead>
+                  <TableHead className="w-24">Fees/mo</TableHead>
+                  <TableHead className="w-24">Tax/mo</TableHead>
+                  <TableHead className="w-10 text-center">Notes</TableHead>
+                  <TableHead className="w-10"></TableHead>
+                  <TableHead className="w-28 text-right">Last Checked</TableHead>
                 </TableRow>
-              ) : (
-                listings?.map((listing) => (
-                  <TableRow
-                    key={listing.id}
-                    className="group"
-                    data-testid={`row-listing-${listing.id}`}
-                  >
-                    <TableCell className="px-2">
-                      <Checkbox
-                        checked={selectedIds.has(listing.id)}
-                        onCheckedChange={(checked) => {
-                          setSelectedIds((prev) => {
-                            const next = new Set(prev);
-                            if (checked) next.add(listing.id);
-                            else next.delete(listing.id);
-                            return next;
-                          });
-                        }}
-                        aria-label={`Select ${listing.id}`}
-                      />
+              </TableHeader>
+              <TableBody>
+                {isLoadingListings ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <TableRow key={i}>
+                      {Array.from({ length: 17 }).map((_, j) => (
+                        <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>
+                      ))}
+                    </TableRow>
+                  ))
+                ) : listings.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={17}>
+                      <EmptyState />
                     </TableCell>
-
-                    {/* Address */}
-                    <TableCell className="font-medium">
-                      <div className="flex items-center gap-1">
-                        <span className="truncate max-w-[200px]" title={listing.address || listing.title || listing.listingUrl}>
-                          {listing.address || listing.title || listing.listingUrl}
-                        </span>
-                        {(listing.address || listing.title) && (
-                          <CopyText text={listing.address || listing.title || ""} />
-                        )}
-                        {listing.listingUrl && (
-                          <a
-                            href={listing.listingUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex text-muted-foreground hover:text-primary transition-colors flex-shrink-0"
-                            title="Open original listing"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <ExternalLink className="w-3 h-3" />
-                          </a>
-                        )}
-                      </div>
-                      {listing.neighborhood && (
-                        <div className="text-[10px] text-muted-foreground mt-0.5">{listing.neighborhood}</div>
-                      )}
-                    </TableCell>
-
-                    {/* Price */}
-                    <TableCell>
-                      <div className="flex flex-col">
-                        <span className="font-mono font-semibold">{listing.currentPrice || "—"}</span>
-                        {listing.priceDelta && listing.priceDelta !== "0.00" && listing.priceDelta !== "$0.00" && listing.priceDelta !== "0" && listing.priceDelta !== "+0.00" && listing.priceDelta !== "-0.00" && (
-                          <span className={`text-[10px] flex items-center ${listing.priceDelta.startsWith("-") ? "text-green-500" : "text-red-500"}`}>
-                            {listing.priceDelta.startsWith("-") ? <ArrowDown className="w-2.5 h-2.5 mr-0.5" /> : <ArrowUp className="w-2.5 h-2.5 mr-0.5" />}
-                            {listing.priceDelta}
-                          </span>
-                        )}
-                      </div>
-                    </TableCell>
-
-                    {/* Specs */}
-                    <TableCell className="text-muted-foreground">
-                      <span>{listing.bedrooms || "—"} bd</span>
-                      <span className="mx-1">·</span>
-                      <span>{listing.bathrooms || "—"} ba</span>
-                    </TableCell>
-
-                    {/* Sqft */}
-                    <TableCell className="text-muted-foreground">
-                      {listing.squareFeet ? `${listing.squareFeet} sqft` : "—"}
-                    </TableCell>
-
-                    {/* Status */}
-                    <TableCell>
-                      <StatusBadge status={listing.listingStatus} />
-                    </TableCell>
-
-                    {/* Condo Type */}
-                    <TableCell className="text-muted-foreground">{fmt(listing.propertyType)}</TableCell>
-
-                    {/* Borough */}
-                    <TableCell className="text-muted-foreground">{fmt(listing.neighborhood)}</TableCell>
-
-                    {/* Interest */}
-                    <TableCell>
-                      {listing.interestLevel && listing.interestLevel !== "none" ? (
-                        <Badge variant="outline" className={`text-[10px] px-1.5 py-0 h-4
-                          ${listing.interestLevel === "high" ? "border-primary text-primary" : ""}
-                          ${listing.interestLevel === "medium" ? "border-blue-500 text-blue-500" : ""}
-                          ${listing.interestLevel === "low" ? "border-muted-foreground text-muted-foreground" : ""}
-                        `}>
-                          {listing.interestLevel.toUpperCase()}
-                        </Badge>
-                      ) : "—"}
-                    </TableCell>
-
-                    {/* Parking */}
-                    <TableCell className="text-muted-foreground">{fmt(listing.parkingInfo)}</TableCell>
-
-                    {/* Metro */}
-                    <TableCell>
-                      {listing.nearestMetro ? (
-                        <div className="flex flex-col">
-                          <span className="text-xs font-medium truncate">{listing.nearestMetro}</span>
-                          <span className="text-[10px] text-muted-foreground">{listing.walkingMinutes} min walk</span>
-                        </div>
-                      ) : "—"}
-                    </TableCell>
-
-                    {/* Condo Fees */}
-                    <TableCell className="text-muted-foreground">{fmt(listing.condoFees)}</TableCell>
-
-                    {/* Taxes */}
-                    <TableCell className="text-muted-foreground">{fmt(listing.taxes)}</TableCell>
-
-                    {/* Notes */}
-                    <TableCell className="text-center">
-                      <NotesPopover
-                        listingId={listing.id}
-                        notes={listing.notes}
-                        interestLevel={listing.interestLevel}
-                        isPending={updateListing.isPending}
-                        onSave={(data) => updateListing.mutate({
-                          id: listing.id,
-                          data: {
-                            notes: data.notes || null,
-                            interestLevel: data.interestLevel === "none" ? null : data.interestLevel || null,
-                          }
-                        })}
-                      />
-                    </TableCell>
-
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          deleteListing.mutate({ id: listing.id });
-                        }}
-                        disabled={deleteListing.isPending}
-                        data-testid={`btn-delete-${listing.id}`}
-                        title="Delete listing"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
-                    </TableCell>
-
-                    {/* Last Checked */}
-                    <TableCell className="text-right text-muted-foreground whitespace-nowrap">
-                      {listing.lastCheckedAt ? (
-                        <span className="flex items-center justify-end gap-1">
-                          <Clock3 className="w-3 h-3" />
-                          {formatDistanceToNow(new Date(listing.lastCheckedAt), { addSuffix: true })}
-                        </span>
-                      ) : "Never"}
-                    </TableCell>
-
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
+                ) : (
+                  listings.map((listing) => {
+                    const pc = priceHistoryMap.get(listing.id);
+                    const pcd = pc ? parsePriceChange(pc) : null;
+                    return (
+                      <TableRow key={listing.id} className="group" data-testid={`row-listing-${listing.id}`}>
+                        <TableCell className="px-2">
+                          <Checkbox
+                            checked={selectedIds.has(listing.id)}
+                            onCheckedChange={(checked) => {
+                              setSelectedIds((prev) => {
+                                const next = new Set(prev);
+                                if (checked) next.add(listing.id); else next.delete(listing.id);
+                                return next;
+                              });
+                            }}
+                            aria-label={`Select ${listing.id}`}
+                          />
+                        </TableCell>
+
+                        {/* Address */}
+                        <TableCell className="font-medium">
+                          <div className="flex items-center gap-1">
+                            <span className="truncate max-w-[200px]" title={listing.address || listing.title || listing.listingUrl}>
+                              {listing.address || listing.title || listing.listingUrl}
+                            </span>
+                            {(listing.address || listing.title) && (
+                              <CopyText text={listing.address || listing.title || ""} />
+                            )}
+                            {listing.listingUrl && (
+                              <a href={listing.listingUrl} target="_blank" rel="noopener noreferrer"
+                                className="inline-flex text-muted-foreground hover:text-primary transition-colors flex-shrink-0"
+                                onClick={(e) => e.stopPropagation()}>
+                                <ExternalLink className="w-3 h-3" />
+                              </a>
+                            )}
+                          </div>
+                          {listing.neighborhood && (
+                            <div className="text-[10px] text-muted-foreground mt-0.5">{listing.neighborhood}</div>
+                          )}
+                        </TableCell>
+
+                        {/* Price */}
+                        <TableCell>
+                          <span className="font-semibold tabular-nums">{fmt(listing.currentPrice)}</span>
+                        </TableCell>
+
+                        {/* Price History (60d) */}
+                        <TableCell>
+                          {pcd ? (
+                            <div className={`flex items-center gap-0.5 font-medium ${pcd.isDown ? "text-emerald-400" : "text-red-400"}`}>
+                              {pcd.isDown ? <ArrowDown className="w-3 h-3 flex-shrink-0" /> : <ArrowUp className="w-3 h-3 flex-shrink-0" />}
+                              <span>{pcd.label}</span>
+                              <span className="text-muted-foreground font-normal ml-1">· {pcd.date}</span>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+
+                        {/* Specs */}
+                        <TableCell className="text-muted-foreground">
+                          {fmt(listing.bedrooms)} bd · {fmt(listing.bathrooms)} ba
+                        </TableCell>
+
+                        {/* Sqft */}
+                        <TableCell className="text-muted-foreground tabular-nums">
+                          {listing.squareFeet ? `${listing.squareFeet}` : "—"}
+                        </TableCell>
+
+                        {/* Status */}
+                        <TableCell><StatusBadge status={listing.listingStatus} /></TableCell>
+
+                        {/* Type */}
+                        <TableCell className="text-muted-foreground">{fmt(listing.propertyType)}</TableCell>
+
+                        {/* Borough */}
+                        <TableCell className="text-muted-foreground">{fmt(listing.neighborhood)}</TableCell>
+
+                        {/* Interest */}
+                        <TableCell><InterestBadge level={listing.interestLevel} /></TableCell>
+
+                        {/* Parking */}
+                        <TableCell className="text-muted-foreground">{fmt(listing.parkingInfo)}</TableCell>
+
+                        {/* Metro */}
+                        <TableCell>
+                          {listing.nearestMetro ? (
+                            <div className="flex flex-col leading-tight">
+                              <span className="font-medium truncate max-w-[110px]">{listing.nearestMetro}</span>
+                              <span className="text-[10px] text-muted-foreground">{listing.walkingMinutes} min walk</span>
+                            </div>
+                          ) : "—"}
+                        </TableCell>
+
+                        {/* Condo Fees/mo */}
+                        <TableCell className="text-muted-foreground tabular-nums">{fmt(listing.condoFees)}</TableCell>
+
+                        {/* Tax/mo */}
+                        <TableCell className="text-muted-foreground tabular-nums">{toMonthly(listing.taxes)}</TableCell>
+
+                        {/* Notes */}
+                        <TableCell className="text-center">
+                          <NotesPopover {...notesProps(listing)} />
+                        </TableCell>
+
+                        {/* Delete */}
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={(e) => { e.stopPropagation(); deleteListing.mutate({ id: listing.id }); }}
+                            data-testid={`btn-delete-${listing.id}`}
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        </TableCell>
+
+                        {/* Last checked */}
+                        <TableCell className="text-right text-muted-foreground tabular-nums">
+                          {listing.updatedAt
+                            ? formatDistanceToNow(new Date(listing.updatedAt), { addSuffix: true })
+                            : "—"}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+
+        {/* ── CARD VIEW ── */}
+        {viewMode === "card" && (
+          <div className="p-4 md:p-6">
+            {isLoadingListings ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <Skeleton key={i} className="h-64 rounded-xl" />
+                ))}
+              </div>
+            ) : listings.length === 0 ? (
+              <EmptyState />
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {listings.map((listing) => {
+                  const pc = priceHistoryMap.get(listing.id);
+                  const pcd = pc ? parsePriceChange(pc) : null;
+                  const isSelected = selectedIds.has(listing.id);
+
+                  return (
+                    <div
+                      key={listing.id}
+                      className={`group relative flex flex-col rounded-xl border bg-card transition-all duration-200 hover:border-primary/40 hover:shadow-lg ${isSelected ? "border-primary/60 shadow-md" : "border-border"}`}
+                      data-testid={`card-listing-${listing.id}`}
+                    >
+                      {/* Card top actions */}
+                      <div className="absolute top-3 right-3 flex items-center gap-1.5 z-10">
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={(checked) => {
+                            setSelectedIds((prev) => {
+                              const next = new Set(prev);
+                              if (checked) next.add(listing.id); else next.delete(listing.id);
+                              return next;
+                            });
+                          }}
+                          aria-label={`Select listing ${listing.id}`}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity data-[state=checked]:opacity-100"
+                        />
+                      </div>
+
+                      {/* Card body */}
+                      <div className="p-5 flex flex-col gap-4 flex-1">
+
+                        {/* Header: address + status */}
+                        <div className="flex items-start justify-between gap-2 pr-8">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <p className="font-semibold text-sm leading-snug truncate" title={listing.address || listing.title || listing.listingUrl}>
+                                {listing.address || listing.title || listing.listingUrl}
+                              </p>
+                              {(listing.address || listing.title) && (
+                                <CopyText text={listing.address || listing.title || ""} />
+                              )}
+                              {listing.listingUrl && (
+                                <a href={listing.listingUrl} target="_blank" rel="noopener noreferrer"
+                                  className="text-muted-foreground hover:text-primary transition-colors flex-shrink-0">
+                                  <ExternalLink className="w-3 h-3" />
+                                </a>
+                              )}
+                            </div>
+                            {listing.neighborhood && (
+                              <p className="text-xs text-muted-foreground mt-0.5">{listing.neighborhood}</p>
+                            )}
+                          </div>
+                          <StatusBadge status={listing.listingStatus} />
+                        </div>
+
+                        {/* Price */}
+                        <div className="flex items-end gap-3">
+                          <span className="text-2xl font-bold tabular-nums tracking-tight">
+                            {listing.currentPrice || "—"}
+                          </span>
+                          {pcd && (
+                            <span className={`flex items-center gap-0.5 text-sm font-medium pb-0.5 ${pcd.isDown ? "text-emerald-400" : "text-red-400"}`}>
+                              {pcd.isDown ? <ArrowDown className="w-3.5 h-3.5" /> : <ArrowUp className="w-3.5 h-3.5" />}
+                              {pcd.label}
+                              <span className="text-muted-foreground font-normal text-xs ml-0.5">· {pcd.date}</span>
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Specs row */}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {listing.bedrooms && (
+                            <span className="inline-flex items-center gap-1 rounded-md bg-muted/50 px-2 py-1 text-xs font-medium">
+                              {listing.bedrooms} <span className="text-muted-foreground">bd</span>
+                            </span>
+                          )}
+                          {listing.bathrooms && (
+                            <span className="inline-flex items-center gap-1 rounded-md bg-muted/50 px-2 py-1 text-xs font-medium">
+                              {listing.bathrooms} <span className="text-muted-foreground">ba</span>
+                            </span>
+                          )}
+                          {listing.squareFeet && (
+                            <span className="inline-flex items-center gap-1 rounded-md bg-muted/50 px-2 py-1 text-xs font-medium tabular-nums">
+                              {listing.squareFeet} <span className="text-muted-foreground">ft²</span>
+                            </span>
+                          )}
+                          {listing.propertyType && (
+                            <span className="inline-flex items-center rounded-md bg-muted/50 px-2 py-1 text-xs text-muted-foreground">
+                              {listing.propertyType}
+                            </span>
+                          )}
+                          <InterestBadge level={listing.interestLevel} />
+                        </div>
+
+                        {/* Metro */}
+                        {listing.nearestMetro && (
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <Train className="w-3.5 h-3.5 flex-shrink-0 text-primary/70" />
+                            <span className="font-medium text-foreground/80">{listing.nearestMetro}</span>
+                            <span>· {listing.walkingMinutes} min walk</span>
+                          </div>
+                        )}
+
+                        {/* Financials */}
+                        <div className="grid grid-cols-2 gap-2 pt-1">
+                          <div className="rounded-lg bg-muted/30 px-3 py-2">
+                            <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-medium mb-0.5">Condo Fees</p>
+                            <p className="text-sm font-semibold tabular-nums">{fmt(listing.condoFees)}</p>
+                          </div>
+                          <div className="rounded-lg bg-muted/30 px-3 py-2">
+                            <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-medium mb-0.5">Tax / mo</p>
+                            <p className="text-sm font-semibold tabular-nums">{toMonthly(listing.taxes)}</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Card footer */}
+                      <div className="px-5 py-3 border-t border-border/60 flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                          {listing.parkingInfo && (
+                            <span className="bg-muted/40 rounded px-1.5 py-0.5">{listing.parkingInfo}</span>
+                          )}
+                          {listing.updatedAt && (
+                            <span>{formatDistanceToNow(new Date(listing.updatedAt), { addSuffix: true })}</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-0.5">
+                          <NotesPopover {...notesProps(listing)} />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={() => deleteListing.mutate({ id: listing.id })}
+                            data-testid={`btn-card-delete-${listing.id}`}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

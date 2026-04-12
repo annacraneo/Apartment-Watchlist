@@ -67,82 +67,90 @@
 }
 
 :root {
-  /* Default to dark mode for this Bloomberg terminal vibe */
-  --background: 220 10% 8%;
-  --foreground: 210 10% 90%;
-  --border: 220 10% 16%;
-  --input: 220 10% 16%;
-  --ring: 142 70% 50%; /* vivid green accent */
-  --card: 220 10% 10%;
-  --card-foreground: 210 10% 90%;
-  --card-border: 220 10% 16%;
-  --popover: 220 10% 10%;
-  --popover-foreground: 210 10% 90%;
-  --popover-border: 220 10% 16%;
-  --primary: 142 70% 50%;
-  --primary-foreground: 220 10% 8%;
-  --secondary: 220 10% 16%;
-  --secondary-foreground: 210 10% 90%;
-  --muted: 220 10% 16%;
-  --muted-foreground: 210 10% 60%;
-  --accent: 142 70% 50%;
-  --accent-foreground: 220 10% 8%;
-  --destructive: 0 70% 50%;
-  --destructive-foreground: 210 10% 90%;
+  /* Modern dark — deep indigo-tinted slate */
+  --background: 226 20% 8%;
+  --foreground: 220 15% 92%;
+  --border: 226 14% 18%;
+  --input: 226 14% 16%;
+  --ring: 250 70% 65%;
 
-  --chart-1: 142 70% 50%;
-  --chart-2: 220 70% 50%;
-  --chart-3: 45 100% 50%;
-  --chart-4: 280 70% 50%;
-  --chart-5: 10 70% 50%;
+  --card: 226 18% 11%;
+  --card-foreground: 220 15% 92%;
+  --card-border: 226 14% 18%;
 
-  --sidebar: 220 10% 6%;
-  --sidebar-foreground: 210 10% 90%;
-  --sidebar-border: 220 10% 16%;
-  --sidebar-primary: 142 70% 50%;
-  --sidebar-primary-foreground: 220 10% 8%;
-  --sidebar-accent: 220 10% 16%;
-  --sidebar-accent-foreground: 210 10% 90%;
-  --sidebar-ring: 142 70% 50%;
+  --popover: 226 18% 11%;
+  --popover-foreground: 220 15% 92%;
+  --popover-border: 226 14% 20%;
+
+  /* Violet accent — modern and premium */
+  --primary: 250 70% 65%;
+  --primary-foreground: 226 20% 8%;
+
+  --secondary: 226 14% 16%;
+  --secondary-foreground: 220 15% 92%;
+
+  --muted: 226 14% 16%;
+  --muted-foreground: 220 12% 55%;
+
+  --accent: 250 70% 65%;
+  --accent-foreground: 226 20% 8%;
+
+  --destructive: 0 65% 55%;
+  --destructive-foreground: 220 15% 92%;
+
+  --chart-1: 250 70% 65%;
+  --chart-2: 190 70% 55%;
+  --chart-3: 45 90% 55%;
+  --chart-4: 320 65% 60%;
+  --chart-5: 10 70% 58%;
+
+  --sidebar: 226 22% 7%;
+  --sidebar-foreground: 220 15% 92%;
+  --sidebar-border: 226 14% 16%;
+  --sidebar-primary: 250 70% 65%;
+  --sidebar-primary-foreground: 226 20% 8%;
+  --sidebar-accent: 226 14% 16%;
+  --sidebar-accent-foreground: 220 15% 92%;
+  --sidebar-ring: 250 70% 65%;
 
   --app-font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
   --app-font-serif: Georgia, serif;
   --app-font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
-  --radius: 0.25rem;
+  --radius: 0.5rem;
 
-  --button-outline: rgba(255,255,255, 0.1);
+  --button-outline: rgba(255,255,255, 0.08);
   --badge-outline: rgba(255,255,255, 0.05);
   --opaque-button-border-intensity: 9;
-  --elevate-1: rgba(255,255,255, 0.04);
-  --elevate-2: rgba(255,255,255, 0.09);
-  --shadow-sm: 0 1px 2px rgba(0,0,0,0.5);
-  --shadow: 0 4px 6px rgba(0,0,0,0.5);
-  --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.5), 0 2px 4px -1px rgba(0,0,0,0.5);
-  --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.5), 0 4px 6px -2px rgba(0,0,0,0.5);
+  --elevate-1: rgba(255,255,255, 0.03);
+  --elevate-2: rgba(255,255,255, 0.07);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.6);
+  --shadow: 0 4px 8px rgba(0,0,0,0.5);
+  --shadow-md: 0 6px 16px rgba(0,0,0,0.5);
+  --shadow-lg: 0 12px 28px rgba(0,0,0,0.6);
 }
 
 .dark {
-  --background: 220 10% 8%;
-  --foreground: 210 10% 90%;
-  --border: 220 10% 16%;
-  --input: 220 10% 16%;
-  --ring: 142 70% 50%; /* vivid green accent */
-  --card: 220 10% 10%;
-  --card-foreground: 210 10% 90%;
-  --card-border: 220 10% 16%;
-  --popover: 220 10% 10%;
-  --popover-foreground: 210 10% 90%;
-  --popover-border: 220 10% 16%;
-  --primary: 142 70% 50%;
-  --primary-foreground: 220 10% 8%;
-  --secondary: 220 10% 16%;
-  --secondary-foreground: 210 10% 90%;
-  --muted: 220 10% 16%;
-  --muted-foreground: 210 10% 60%;
-  --accent: 142 70% 50%;
-  --accent-foreground: 220 10% 8%;
-  --destructive: 0 70% 50%;
-  --destructive-foreground: 210 10% 90%;
+  --background: 226 20% 8%;
+  --foreground: 220 15% 92%;
+  --border: 226 14% 18%;
+  --input: 226 14% 16%;
+  --ring: 250 70% 65%;
+  --card: 226 18% 11%;
+  --card-foreground: 220 15% 92%;
+  --card-border: 226 14% 18%;
+  --popover: 226 18% 11%;
+  --popover-foreground: 220 15% 92%;
+  --popover-border: 226 14% 20%;
+  --primary: 250 70% 65%;
+  --primary-foreground: 226 20% 8%;
+  --secondary: 226 14% 16%;
+  --secondary-foreground: 220 15% 92%;
+  --muted: 226 14% 16%;
+  --muted-foreground: 220 12% 55%;
+  --accent: 250 70% 65%;
+  --accent-foreground: 226 20% 8%;
+  --destructive: 0 65% 55%;
+  --destructive-foreground: 220 15% 92%;
 }
 
 @layer base {

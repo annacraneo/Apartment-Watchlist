@@ -223,6 +223,32 @@ router.post("/listings/check-all", async (req, res): Promise<void> => {
   res.json(result);
 });
 
+// GET /listings/recent-price-changes?days=60
+router.get("/listings/recent-price-changes", async (req, res): Promise<void> => {
+  const days = Math.min(parseInt((req.query.days as string) || "60", 10) || 60, 365);
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+  const changes = await db
+    .select()
+    .from(listingChangesTable)
+    .where(
+      and(
+        sql`${listingChangesTable.changeType} IN ('price_drop', 'price_increase')`,
+        sql`${listingChangesTable.changedAt} >= ${since}`,
+      )
+    )
+    .orderBy(desc(listingChangesTable.changedAt));
+
+  const seen = new Set<number>();
+  const result = changes.filter((c) => {
+    if (seen.has(c.listingId)) return false;
+    seen.add(c.listingId);
+    return true;
+  });
+
+  res.json(result);
+});
+
 // GET /listings/:id
 router.get("/listings/:id", async (req, res): Promise<void> => {
   const params = GetListingParams.safeParse({ id: req.params.id });
