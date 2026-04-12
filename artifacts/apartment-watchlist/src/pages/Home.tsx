@@ -24,6 +24,11 @@ import {
   LayoutList,
   LayoutGrid,
   Train,
+  BedDouble,
+  Bath,
+  Maximize2,
+  Building2,
+  Camera,
 } from "lucide-react";
 import { format, differenceInMinutes, differenceInHours, differenceInDays } from "date-fns";
 
@@ -186,6 +191,18 @@ function NotesPopover({ listingId, notes, interestLevel, onSave, isPending }: No
       </PopoverContent>
     </Popover>
   );
+}
+
+function CardImage({ src }: { src: string | null | undefined }) {
+  const [error, setError] = useState(false);
+  if (!src || error) {
+    return (
+      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-muted/60 via-muted/30 to-background/60">
+        <Building2 className="w-16 h-16 text-muted-foreground/15" />
+      </div>
+    );
+  }
+  return <img src={src} alt="" className="w-full h-full object-cover" onError={() => setError(true)} />;
 }
 
 function InterestBadge({ level }: { level: string | null | undefined }) {
@@ -656,98 +673,128 @@ export default function Home() {
             ) : listings.length === 0 ? (
               <EmptyState />
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
                 {listings.map((listing) => {
                   const pc = priceHistoryMap.get(listing.id);
                   const pcd = pc ? parsePriceChange(pc) : null;
                   const isSelected = selectedIds.has(listing.id);
+                  const photoCount = (() => { try { return (JSON.parse(listing.allImageUrls || "[]") as unknown[]).length; } catch { return 0; } })();
+                  const streetAddress = stripBorough(listing.address || listing.title || "");
+                  const borough = listing.neighborhood || (() => { const m = (listing.address || "").match(/\(([^)]+)\)\s*$/); return m ? m[1] : null; })();
 
                   return (
                     <div
                       key={listing.id}
-                      className={`group relative flex flex-col rounded-xl border bg-card transition-all duration-200 hover:border-primary/40 hover:shadow-lg ${isSelected ? "border-primary/60 shadow-md" : "border-border"}`}
+                      className={`group flex flex-col rounded-2xl border bg-card overflow-hidden transition-all duration-200 hover:shadow-xl hover:shadow-black/30 hover:-translate-y-0.5 ${isSelected ? "border-primary/50 ring-1 ring-primary/30" : "border-border hover:border-border/80"}`}
                       data-testid={`card-listing-${listing.id}`}
                     >
-                      {/* Card top actions */}
-                      <div className="absolute top-3 right-3 flex items-center gap-1.5 z-10">
-                        <Checkbox
-                          checked={isSelected}
-                          onCheckedChange={(checked) => {
-                            setSelectedIds((prev) => {
-                              const next = new Set(prev);
-                              if (checked) next.add(listing.id); else next.delete(listing.id);
-                              return next;
-                            });
-                          }}
-                          aria-label={`Select listing ${listing.id}`}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity data-[state=checked]:opacity-100"
-                        />
-                      </div>
+                      {/* ── Photo hero ── */}
+                      <div className="relative aspect-[16/10] overflow-hidden bg-muted/40">
+                        <CardImage src={listing.mainImageUrl} />
 
-                      {/* Card body */}
-                      <div className="p-5 flex flex-col gap-4 flex-1">
+                        {/* Gradient overlay at bottom of image */}
+                        <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/60 to-transparent" />
 
-                        {/* Header: address + status */}
-                        <div className="flex items-start justify-between gap-2 pr-8">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <p className="font-semibold text-sm leading-snug truncate" title={listing.address || listing.title || listing.listingUrl}>
-                                {listing.address || listing.title || listing.listingUrl}
-                              </p>
-                              {(listing.address || listing.title) && (
-                                <CopyText text={stripBorough(listing.address || listing.title || "")} />
-                              )}
-                              {listing.listingUrl && (
-                                <a href={listing.listingUrl} target="_blank" rel="noopener noreferrer"
-                                  className="text-muted-foreground hover:text-primary transition-colors flex-shrink-0">
-                                  <ExternalLink className="w-3 h-3" />
-                                </a>
-                              )}
-                            </div>
-                            {listing.neighborhood && (
-                              <p className="text-xs text-muted-foreground mt-0.5">{listing.neighborhood}</p>
-                            )}
-                          </div>
+                        {/* Top-right: checkbox */}
+                        <div className="absolute top-2.5 right-2.5 z-10">
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={(checked) => {
+                              setSelectedIds((prev) => {
+                                const next = new Set(prev);
+                                if (checked) next.add(listing.id); else next.delete(listing.id);
+                                return next;
+                              });
+                            }}
+                            aria-label={`Select listing ${listing.id}`}
+                            className="opacity-0 group-hover:opacity-100 transition-opacity data-[state=checked]:opacity-100 bg-black/40 border-white/50"
+                          />
+                        </div>
+
+                        {/* Bottom-left: status badge */}
+                        <div className="absolute bottom-2.5 left-3 z-10">
                           <StatusBadge status={listing.listingStatus} />
                         </div>
 
-                        {/* Price */}
-                        <div className="flex items-end gap-3">
-                          <span className="text-2xl font-bold tabular-nums tracking-tight">
-                            {listing.currentPrice || "—"}
-                          </span>
-                          {pcd && (
-                            <span className={`flex items-center gap-0.5 text-sm font-medium pb-0.5 ${pcd.isDown ? "text-emerald-400" : "text-red-400"}`}>
-                              {pcd.isDown ? <ArrowDown className="w-3.5 h-3.5" /> : <ArrowUp className="w-3.5 h-3.5" />}
-                              {pcd.label}
-                              <span className="text-muted-foreground font-normal text-xs ml-0.5">· {pcd.date}</span>
-                            </span>
+                        {/* Bottom-right: photo count */}
+                        {photoCount > 0 && (
+                          <div className="absolute bottom-2.5 right-3 z-10 flex items-center gap-1 bg-black/60 backdrop-blur-sm text-white text-xs font-medium rounded-lg px-2 py-1">
+                            <Camera className="w-3 h-3" />
+                            {photoCount}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* ── Card content ── */}
+                      <div className="flex flex-col flex-1 p-4 gap-3">
+
+                        {/* Price row */}
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="text-2xl font-bold tracking-tight tabular-nums leading-none">
+                              {listing.currentPrice
+                                ? `$${Number(listing.currentPrice.replace(/[^0-9.]/g, "")).toLocaleString("en-CA")}`
+                                : "—"}
+                            </p>
+                            {pcd && (
+                              <span className={`inline-flex items-center gap-0.5 text-xs font-medium mt-0.5 ${pcd.isDown ? "text-emerald-400" : "text-red-400"}`}>
+                                {pcd.isDown ? <ArrowDown className="w-3 h-3" /> : <ArrowUp className="w-3 h-3" />}
+                                {pcd.label} · {pcd.date}
+                              </span>
+                            )}
+                          </div>
+                          <InterestBadge level={listing.interestLevel} />
+                        </div>
+
+                        {/* Property type */}
+                        {listing.propertyType && (
+                          <p className="text-sm text-muted-foreground -mt-1">
+                            {listing.propertyType} condo
+                          </p>
+                        )}
+
+                        {/* Address */}
+                        <div>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <p className="text-sm font-medium leading-snug">{streetAddress || listing.listingUrl}</p>
+                            {streetAddress && <CopyText text={streetAddress} />}
+                            {listing.listingUrl && (
+                              <a href={listing.listingUrl} target="_blank" rel="noopener noreferrer"
+                                className="text-muted-foreground hover:text-primary transition-colors">
+                                <ExternalLink className="w-3 h-3" />
+                              </a>
+                            )}
+                          </div>
+                          {borough && (
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {listing.city || "Montréal"} · {borough}
+                            </p>
                           )}
                         </div>
 
+                        <div className="h-px bg-border/50" />
+
                         {/* Specs row */}
-                        <div className="flex items-center gap-2 flex-wrap">
+                        <div className="flex items-center gap-4 text-sm">
                           {listing.bedrooms && (
-                            <span className="inline-flex items-center gap-1 rounded-md bg-muted/50 px-2 py-1 text-xs font-medium">
-                              {listing.bedrooms} <span className="text-muted-foreground">bd</span>
+                            <span className="flex items-center gap-1.5 text-muted-foreground">
+                              <BedDouble className="w-4 h-4 flex-shrink-0" />
+                              <span className="font-semibold text-foreground">{listing.bedrooms}</span>
                             </span>
                           )}
                           {listing.bathrooms && (
-                            <span className="inline-flex items-center gap-1 rounded-md bg-muted/50 px-2 py-1 text-xs font-medium">
-                              {listing.bathrooms} <span className="text-muted-foreground">ba</span>
+                            <span className="flex items-center gap-1.5 text-muted-foreground">
+                              <Bath className="w-4 h-4 flex-shrink-0" />
+                              <span className="font-semibold text-foreground">{listing.bathrooms}</span>
                             </span>
                           )}
                           {listing.squareFeet && (
-                            <span className="inline-flex items-center gap-1 rounded-md bg-muted/50 px-2 py-1 text-xs font-medium tabular-nums">
-                              {listing.squareFeet} <span className="text-muted-foreground">ft²</span>
+                            <span className="flex items-center gap-1.5 text-muted-foreground">
+                              <Maximize2 className="w-3.5 h-3.5 flex-shrink-0" />
+                              <span className="font-semibold text-foreground tabular-nums">{listing.squareFeet}</span>
+                              <span className="text-xs">ft²</span>
                             </span>
                           )}
-                          {listing.propertyType && (
-                            <span className="inline-flex items-center rounded-md bg-muted/50 px-2 py-1 text-xs text-muted-foreground">
-                              {listing.propertyType}
-                            </span>
-                          )}
-                          <InterestBadge level={listing.interestLevel} />
                         </div>
 
                         {/* Metro */}
@@ -759,29 +806,31 @@ export default function Home() {
                           </div>
                         )}
 
+                        <div className="h-px bg-border/50" />
+
                         {/* Financials */}
-                        <div className="grid grid-cols-2 gap-2 pt-1">
-                          <div className="rounded-lg bg-muted/30 px-3 py-2">
-                            <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-medium mb-0.5">Condo Fees</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="rounded-lg bg-muted/40 px-3 py-2">
+                            <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Condo fees</p>
                             <p className="text-sm font-semibold tabular-nums">{fmt(listing.condoFees)}</p>
                           </div>
-                          <div className="rounded-lg bg-muted/30 px-3 py-2">
-                            <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-medium mb-0.5">Tax / mo</p>
+                          <div className="rounded-lg bg-muted/40 px-3 py-2">
+                            <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-0.5">Taxes / mo</p>
                             <p className="text-sm font-semibold tabular-nums">{toMonthly(listing.taxes)}</p>
                           </div>
                         </div>
+
+                        {/* Parking */}
+                        {listing.parkingInfo && (
+                          <p className="text-xs text-muted-foreground -mt-1">
+                            <span className="font-medium text-foreground/70">Parking:</span> {listing.parkingInfo}
+                          </p>
+                        )}
                       </div>
 
-                      {/* Card footer */}
-                      <div className="px-5 py-3 border-t border-border/60 flex items-center justify-between">
-                        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                          {listing.parkingInfo && (
-                            <span className="bg-muted/40 rounded px-1.5 py-0.5">{listing.parkingInfo}</span>
-                          )}
-                          {listing.updatedAt && (
-                            <span>{timeAgo(listing.updatedAt)}</span>
-                          )}
-                        </div>
+                      {/* ── Footer ── */}
+                      <div className="px-4 py-2.5 border-t border-border/50 flex items-center justify-between bg-muted/10">
+                        <span className="text-[11px] text-muted-foreground">{timeAgo(listing.updatedAt)}</span>
                         <div className="flex items-center gap-0.5">
                           <NotesPopover {...notesProps(listing)} />
                           <Button
