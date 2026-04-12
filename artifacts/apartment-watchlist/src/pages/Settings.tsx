@@ -36,10 +36,7 @@ const settingsSchema = z.object({
   browseAiApiKey: z.string().optional(),
   browseAiRobotId: z.string().optional(),
   browseAiWebhookSecret: z.string().optional(),
-  centrisExtractionMode: z.enum(["native", "browse_ai"]),
-  realtorExtractionMode: z.enum(["native", "browse_ai"]),
   notifyOnPriceDrop: z.boolean(),
-  notifyOnStatusChange: z.boolean(),
   notifyOnUnavailable: z.boolean(),
 });
 
@@ -56,10 +53,7 @@ export default function Settings() {
       browseAiApiKey: "",
       browseAiRobotId: "",
       browseAiWebhookSecret: "",
-      centrisExtractionMode: "native",
-      realtorExtractionMode: "native",
       notifyOnPriceDrop: true,
-      notifyOnStatusChange: true,
       notifyOnUnavailable: true,
     },
   });
@@ -72,10 +66,7 @@ export default function Settings() {
         browseAiApiKey: settings.browseAiApiKey || "",
         browseAiRobotId: settings.browseAiRobotId || "",
         browseAiWebhookSecret: settings.browseAiWebhookSecret || "",
-        centrisExtractionMode: (settings.centrisExtractionMode as "native" | "browse_ai") || "native",
-        realtorExtractionMode: (settings.realtorExtractionMode as "native" | "browse_ai") || "native",
         notifyOnPriceDrop: settings.notifyOnPriceDrop,
-        notifyOnStatusChange: settings.notifyOnStatusChange,
         notifyOnUnavailable: settings.notifyOnUnavailable,
       });
     }
@@ -108,8 +99,6 @@ export default function Settings() {
   function onSubmit(values: z.infer<typeof settingsSchema>) {
     updateSettings.mutate({ data: values });
   }
-
-  const globalExtractionMode = form.watch("extractionMode");
 
   if (isLoading) {
     return <div className="p-6 container mx-auto max-w-4xl space-y-6"><Skeleton className="h-64 w-full" /></div>;
@@ -173,57 +162,7 @@ export default function Settings() {
 
               <Separator />
 
-              <div>
-                <h4 className="text-sm font-medium mb-4">Site-Specific Overrides</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <FormField
-                    control={form.control}
-                    name="centrisExtractionMode"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Centris.ca Mode</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger data-testid="select-centris-mode">
-                              <SelectValue placeholder="Select mode" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="native">Native</SelectItem>
-                            <SelectItem value="browse_ai">Browse AI</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="realtorExtractionMode"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Realtor.ca Mode</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger data-testid="select-realtor-mode">
-                              <SelectValue placeholder="Select mode" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="native">Native</SelectItem>
-                            <SelectItem value="browse_ai">Browse AI</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {(globalExtractionMode === "browse_ai" || form.watch("centrisExtractionMode") === "browse_ai" || form.watch("realtorExtractionMode") === "browse_ai") && (
+              {form.watch("extractionMode") === "browse_ai" && (
             <Card className="border-primary/50">
               <CardHeader className="bg-primary/5">
                 <CardTitle className="flex items-center text-primary">
@@ -296,21 +235,6 @@ export default function Settings() {
                     </div>
                     <FormControl>
                       <Switch checked={field.value} onCheckedChange={field.onChange} data-testid="toggle-notify-price" />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="notifyOnStatusChange"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 bg-background shadow-sm">
-                    <div className="space-y-0.5">
-                      <FormLabel className="text-base font-semibold">Status Changes</FormLabel>
-                      <FormDescription>Create a notification when status changes (e.g. Active to Pending).</FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch checked={field.value} onCheckedChange={field.onChange} data-testid="toggle-notify-status" />
                     </FormControl>
                   </FormItem>
                 )}
