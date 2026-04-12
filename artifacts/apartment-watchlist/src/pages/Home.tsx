@@ -379,8 +379,10 @@ export default function Home() {
                 <TableHead className="min-w-[200px]">Address</TableHead>
                 <TableHead className="w-24">Price</TableHead>
                 <TableHead className="w-28">Specs</TableHead>
+                <TableHead className="w-24">Sqft</TableHead>
                 <TableHead className="w-20">Status</TableHead>
                 <TableHead className="w-28">Condo Type</TableHead>
+                <TableHead className="w-32">Neighborhood</TableHead>
                 <TableHead className="w-20">Year Built</TableHead>
                 <TableHead className="w-16">DOM</TableHead>
                 <TableHead className="w-32">Parking</TableHead>
@@ -494,9 +496,11 @@ export default function Home() {
                       <span>{listing.bedrooms || "—"} bd</span>
                       <span className="mx-1">·</span>
                       <span>{listing.bathrooms || "—"} ba</span>
-                      {listing.squareFeet && (
-                        <div className="text-[10px]">{listing.squareFeet} sqft</div>
-                      )}
+                    </TableCell>
+
+                    {/* Sqft */}
+                    <TableCell className="text-muted-foreground">
+                      {listing.squareFeet ? `${listing.squareFeet} sqft` : "—"}
                     </TableCell>
 
                     {/* Status */}
@@ -506,6 +510,9 @@ export default function Home() {
 
                     {/* Condo Type */}
                     <TableCell className="text-muted-foreground">{fmt(listing.propertyType)}</TableCell>
+
+                    {/* Neighborhood */}
+                    <TableCell className="text-muted-foreground">{fmt(listing.neighborhood)}</TableCell>
 
                     {/* Year Built */}
                     <TableCell className="text-muted-foreground">{fmt(listing.yearBuilt)}</TableCell>
