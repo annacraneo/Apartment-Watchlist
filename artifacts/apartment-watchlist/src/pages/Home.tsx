@@ -32,6 +32,9 @@ import {
   TrendingDown,
   Map as MapIcon,
   Car,
+  ChevronUp,
+  ChevronDown,
+  ChevronsUpDown,
 } from "lucide-react";
 import { format, differenceInMinutes, differenceInHours, differenceInDays } from "date-fns";
 
@@ -340,6 +343,39 @@ function InterestBadge({ level }: { level: string | null | undefined }) {
   );
 }
 
+function SortableHeader({
+  label,
+  field,
+  sortBy,
+  sortDir,
+  onSort,
+}: {
+  label: string;
+  field: string;
+  sortBy: string;
+  sortDir: string;
+  onSort: (field: string, dir: string) => void;
+}) {
+  const active = sortBy === field;
+  const toggle = () => {
+    if (!active) onSort(field, "asc");
+    else onSort(field, sortDir === "asc" ? "desc" : "asc");
+  };
+  return (
+    <button
+      onClick={toggle}
+      className={`flex items-center gap-0.5 hover:text-foreground transition-colors ${active ? "text-foreground" : "text-muted-foreground"}`}
+    >
+      {label}
+      {active
+        ? sortDir === "asc"
+          ? <ChevronUp className="w-3 h-3" />
+          : <ChevronDown className="w-3 h-3" />
+        : <ChevronsUpDown className="w-3 h-3 opacity-40" />}
+    </button>
+  );
+}
+
 export default function Home() {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -350,6 +386,8 @@ export default function Home() {
   const [parkingInfo, setParkingInfo] = useState<string>("all");
   const [sortBy, setSortBy] = useState("updatedAt");
   const [sortDir, setSortDir] = useState("desc");
+
+  const onSort = (field: string, dir: string) => { setSortBy(field); setSortDir(dir); };
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [viewMode, setViewMode] = useState<"table" | "card">("table");
 
@@ -618,15 +656,21 @@ export default function Home() {
                   </TableHead>
                   <TableHead className="w-8"></TableHead>
                   <TableHead className="min-w-[220px]">Address</TableHead>
-                  <TableHead className="w-28">Price</TableHead>
+                  <TableHead className="w-28">
+                    <SortableHeader label="Price" field="currentPrice" sortBy={sortBy} sortDir={sortDir} onSort={onSort} />
+                  </TableHead>
                   <TableHead className="w-32">Price History</TableHead>
                   <TableHead className="w-28">Specs</TableHead>
                   <TableHead className="w-24">Sqft</TableHead>
                   <TableHead className="w-28">Type</TableHead>
                   <TableHead className="w-32">Borough</TableHead>
-                  <TableHead className="w-20">Interest</TableHead>
+                  <TableHead className="w-20">
+                    <SortableHeader label="Interest" field="interestLevel" sortBy={sortBy} sortDir={sortDir} onSort={onSort} />
+                  </TableHead>
                   <TableHead className="w-32">Parking</TableHead>
-                  <TableHead className="w-28">Metro</TableHead>
+                  <TableHead className="w-28">
+                    <SortableHeader label="Metro" field="walkingMinutes" sortBy={sortBy} sortDir={sortDir} onSort={onSort} />
+                  </TableHead>
                   <TableHead className="w-24">Fees</TableHead>
                   <TableHead className="w-24">Tax</TableHead>
                   <TableHead className="w-10 text-center">Notes</TableHead>
@@ -810,6 +854,34 @@ export default function Home() {
             ) : listings.length === 0 ? (
               <EmptyState />
             ) : (
+              <>
+              <div className="flex items-center gap-1 mb-4 flex-wrap">
+                <span className="text-xs text-muted-foreground mr-1">Sort:</span>
+                {([
+                  { label: "Price", field: "currentPrice", defaultDir: "asc" },
+                  { label: "Interest", field: "interestLevel", defaultDir: "desc" },
+                  { label: "Metro", field: "walkingMinutes", defaultDir: "asc" },
+                  { label: "Recent", field: "updatedAt", defaultDir: "desc" },
+                ] as const).map(({ label, field, defaultDir }) => {
+                  const active = sortBy === field;
+                  return (
+                    <button
+                      key={field}
+                      onClick={() => active ? setSortDir(d => d === "asc" ? "desc" : "asc") : onSort(field, defaultDir)}
+                      className={`inline-flex items-center gap-0.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
+                        active
+                          ? "bg-primary/15 text-primary border-primary/30"
+                          : "bg-muted/40 text-muted-foreground border-border hover:text-foreground"
+                      }`}
+                    >
+                      {label}
+                      {active
+                        ? sortDir === "asc" ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
+                        : <ChevronsUpDown className="w-3 h-3 opacity-40" />}
+                    </button>
+                  );
+                })}
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
                 {listings.map((listing) => {
                   const pc = priceHistoryMap.get(listing.id);
@@ -977,6 +1049,7 @@ export default function Home() {
                   );
                 })}
               </div>
+              </>
             )}
           </div>
         )}
