@@ -31,6 +31,7 @@ import {
   Camera,
   TrendingDown,
   Map as MapIcon,
+  Car,
 } from "lucide-react";
 import { format, differenceInMinutes, differenceInHours, differenceInDays } from "date-fns";
 
@@ -922,6 +923,14 @@ export default function Home() {
                               <span className="text-xs">ft²</span>
                             </span>
                           )}
+                          {listing.parkingInfo && (
+                            <span className="flex items-center gap-1.5 text-muted-foreground">
+                              <Car className="w-3.5 h-3.5 flex-shrink-0" />
+                              <span className="font-semibold text-foreground">
+                                {listing.parkingInfo.replace(/\s*\([^)]+\)/g, "").trim()}
+                              </span>
+                            </span>
+                          )}
                         </div>
 
                         {/* Metro */}
@@ -947,12 +956,6 @@ export default function Home() {
                           </div>
                         </div>
 
-                        {/* Parking */}
-                        {listing.parkingInfo && (
-                          <p className="text-xs text-muted-foreground -mt-1">
-                            <span className="font-medium text-foreground/70">Parking:</span> {listing.parkingInfo}
-                          </p>
-                        )}
                       </div>
 
                       {/* ── Footer ── */}
