@@ -28,7 +28,7 @@ const MONTREAL_METRO_STATIONS: MetroStation[] = [
   { name: "Papineau", lat: 45.5234, lng: -73.5467, line: "Green" },
   { name: "Frontenac", lat: 45.5310, lng: -73.5455, line: "Green" },
   { name: "Préfontaine", lat: 45.5358, lng: -73.5449, line: "Green" },
-  { name: "Joliette", lat: 45.5443, lng: -73.5417, line: "Green" },
+  { name: "Joliette", lat: 45.5462, lng: -73.5412, line: "Green" },
   { name: "Pie-IX", lat: 45.5508, lng: -73.5332, line: "Green" },
   { name: "Viau", lat: 45.5588, lng: -73.5298, line: "Green" },
   { name: "Assomption", lat: 45.5627, lng: -73.5238, line: "Green" },
@@ -97,33 +97,81 @@ function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): nu
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-function walkingMinutesFromKm(km: number): number {
-  // 5 km/h walking speed, 1.3 route factor for real walking paths
-  return Math.round((km * 1.3) / 5 * 60);
-}
-
 export interface NearestMetroResult {
   name: string;
   walkingMinutes: number;
   distanceKm: number;
 }
 
-export function findNearestMetro(lat: number, lng: number): NearestMetroResult {
+/** Haversine-only fallback — used when OSRM is unavailable */
+function findNearestMetroFallback(lat: number, lng: number): NearestMetroResult {
   let nearest = MONTREAL_METRO_STATIONS[0];
   let minDist = Infinity;
-
   for (const station of MONTREAL_METRO_STATIONS) {
     const dist = haversineKm(lat, lng, station.lat, station.lng);
-    if (dist < minDist) {
-      minDist = dist;
-      nearest = station;
-    }
+    if (dist < minDist) { minDist = dist; nearest = station; }
   }
+  // Conservative 1.6× route factor; 4.5 km/h pedestrian pace
+  const walkingMinutes = Math.round((minDist * 1.6) / 4.5 * 60);
+  return { name: nearest.name, walkingMinutes: Math.max(1, walkingMinutes), distanceKm: Math.round(minDist * 100) / 100 };
+}
+
+/**
+ * Uses OSRM (OpenStreetMap routing) to find the nearest station by actual
+ * walking distance. Pre-filters to the 10 closest stations by straight-line
+ * distance, then does one batch routing query for all 10.
+ */
+async function findNearestMetroViaOSRM(lat: number, lng: number): Promise<NearestMetroResult | null> {
+  const TOP_N = 10;
+
+  // 1. Pre-filter: cheapest 10 by haversine
+  const candidates = MONTREAL_METRO_STATIONS
+    .map((s) => ({ ...s, straightKm: haversineKm(lat, lng, s.lat, s.lng) }))
+    .sort((a, b) => a.straightKm - b.straightKm)
+    .slice(0, TOP_N);
+
+  // 2. Build OSRM Table request
+  //    Coordinate format: lng,lat (OSRM uses lon first)
+  //    Index 0 = the listing; indices 1..N = metro stations
+  const coords = [
+    `${lng},${lat}`,
+    ...candidates.map((s) => `${s.lng},${s.lat}`),
+  ].join(";");
+  // OSRM table API uses semicolons to separate index lists
+  const destinations = candidates.map((_, i) => i + 1).join(";");
+  const url =
+    `https://router.project-osrm.org/table/v1/foot/${coords}` +
+    `?sources=0&destinations=${destinations}&annotations=distance`;
+
+  const resp = await fetch(url, {
+    headers: { "User-Agent": "AptWatch/1.0 (apartment-watchlist)" },
+    signal: AbortSignal.timeout(12000),
+  });
+  if (!resp.ok) return null;
+
+  const data = (await resp.json()) as {
+    code?: string;
+    distances?: (number | null)[][];
+  };
+  if (data.code !== "Ok" || !data.distances?.[0]) return null;
+
+  // 3. Pick the station with the shortest road-network walking distance
+  let bestIdx = 0;
+  let bestMeters = Infinity;
+  data.distances[0].forEach((dist, i) => {
+    if (dist !== null && dist < bestMeters) { bestMeters = dist; bestIdx = i; }
+  });
+
+  const best = candidates[bestIdx];
+  // The public OSRM server's foot-profile speed is inaccurate; compute time ourselves
+  // using 4.5 km/h average walking pace (conservative for urban blocks)
+  const walkingMeters = bestMeters < Infinity ? bestMeters : best.straightKm * 1000;
+  const walkingMinutes = Math.max(1, Math.round((walkingMeters / 1000 / 4.5) * 60));
 
   return {
-    name: nearest.name,
-    walkingMinutes: walkingMinutesFromKm(minDist),
-    distanceKm: Math.round(minDist * 100) / 100,
+    name: best.name,
+    walkingMinutes,
+    distanceKm: Math.round(walkingMeters / 10) / 100,
   };
 }
 
@@ -155,9 +203,7 @@ export async function computeMetroProximity(
   if (lat && lng) {
     const latN = parseFloat(lat);
     const lngN = parseFloat(lng);
-    if (!isNaN(latN) && !isNaN(lngN)) {
-      coords = { lat: latN, lng: lngN };
-    }
+    if (!isNaN(latN) && !isNaN(lngN)) coords = { lat: latN, lng: lngN };
   }
 
   if (!coords && address) {
@@ -166,5 +212,16 @@ export async function computeMetroProximity(
 
   if (!coords) return null;
 
-  return findNearestMetro(coords.lat, coords.lng);
+  // Try real walking routing first; fall back to conservative haversine estimate
+  try {
+    const osrm = await findNearestMetroViaOSRM(coords.lat, coords.lng);
+    if (osrm) {
+      logger.info({ station: osrm.name, walkingMinutes: osrm.walkingMinutes }, "Metro proximity via OSRM");
+      return osrm;
+    }
+  } catch (err) {
+    logger.warn({ err }, "OSRM routing failed, falling back to haversine");
+  }
+
+  return findNearestMetroFallback(coords.lat, coords.lng);
 }
