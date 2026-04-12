@@ -29,7 +29,6 @@ import {
   Maximize2,
   Building2,
   Camera,
-  TrendingDown,
   Map as MapIcon,
   Car,
   ChevronUp,
@@ -63,13 +62,6 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
 
 import { AddListingDialog } from "@/components/AddListingDialog";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -219,102 +211,6 @@ function NotesPopover({ listingId, notes, interestLevel, onSave, isPending }: No
   );
 }
 
-function LogPriceChangeDialog({
-  listingId,
-  currentPrice,
-}: {
-  listingId: number;
-  currentPrice: string | null | undefined;
-}) {
-  const [open, setOpen] = useState(false);
-  const [oldPrice, setOldPrice] = useState("");
-  const [newPrice, setNewPrice] = useState(currentPrice?.replace(/[^0-9.]/g, "") ?? "");
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
-
-  const mutation = useMutation({
-    mutationFn: async () => {
-      const res = await fetch(`/api/listings/${listingId}/price-history`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ oldPrice, newPrice, changedAt: new Date(date).toISOString() }),
-      });
-      if (!res.ok) throw new Error(await res.text());
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["recent-price-changes"] });
-      toast({ title: "Price change recorded" });
-      setOpen(false);
-      setOldPrice("");
-    },
-    onError: (e) => toast({ title: "Failed", description: String(e), variant: "destructive" }),
-  });
-
-  return (
-    <>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-7 w-7 text-muted-foreground hover:text-primary"
-        onClick={() => setOpen(true)}
-        title="Log historical price change"
-      >
-        <TrendingDown className="w-3.5 h-3.5" />
-      </Button>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Log price change</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-3 py-2">
-            <div className="grid gap-1.5">
-              <Label className="text-xs text-muted-foreground">Date of change</Label>
-              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="grid gap-1.5">
-                <Label className="text-xs text-muted-foreground">Previous price ($)</Label>
-                <Input
-                  placeholder="514000"
-                  value={oldPrice}
-                  onChange={(e) => setOldPrice(e.target.value)}
-                  autoFocus
-                />
-              </div>
-              <div className="grid gap-1.5">
-                <Label className="text-xs text-muted-foreground">New price ($)</Label>
-                <Input
-                  placeholder="499000"
-                  value={newPrice}
-                  onChange={(e) => setNewPrice(e.target.value)}
-                />
-              </div>
-            </div>
-            {oldPrice && newPrice && (
-              <p className="text-sm text-muted-foreground">
-                {Number(newPrice.replace(/[^0-9.]/g, "")) < Number(oldPrice.replace(/[^0-9.]/g, ""))
-                  ? <span className="text-emerald-400">↓ Price drop of ${(Number(oldPrice.replace(/[^0-9.]/g, "")) - Number(newPrice.replace(/[^0-9.]/g, ""))).toLocaleString("en-CA")}</span>
-                  : <span className="text-red-400">↑ Price increase of ${(Number(newPrice.replace(/[^0-9.]/g, "")) - Number(oldPrice.replace(/[^0-9.]/g, ""))).toLocaleString("en-CA")}</span>
-                }
-              </p>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button
-              onClick={() => mutation.mutate()}
-              disabled={!oldPrice || !newPrice || mutation.isPending}
-            >
-              {mutation.isPending ? "Saving…" : "Save"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
-  );
-}
 
 function CardImage({ src }: { src: string | null | undefined }) {
   const [error, setError] = useState(false);
@@ -811,7 +707,6 @@ export default function Home() {
                         {/* Notes + actions */}
                         <TableCell>
                           <div className="flex items-center gap-0.5">
-                            <LogPriceChangeDialog listingId={listing.id} currentPrice={listing.currentPrice} />
                             <NotesPopover {...notesProps(listing)} />
                           </div>
                         </TableCell>
@@ -1032,7 +927,6 @@ export default function Home() {
                       <div className="px-4 py-2.5 border-t border-border/50 flex items-center justify-between bg-muted/10">
                         <span className="text-[11px] text-muted-foreground">{timeAgo(listing.updatedAt)}</span>
                         <div className="flex items-center gap-0.5">
-                          <LogPriceChangeDialog listingId={listing.id} currentPrice={listing.currentPrice} />
                           <NotesPopover {...notesProps(listing)} />
                           <Button
                             variant="ghost"
