@@ -13,8 +13,6 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { 
   Search, 
   RefreshCw, 
-  Star, 
-  Clock, 
   MapPin,
   ArrowDown,
   ArrowUp,
@@ -23,6 +21,7 @@ import {
   Check,
   Pencil,
   ExternalLink,
+  Clock3,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
@@ -79,32 +78,27 @@ function CopyText({ text }: { text: string }) {
 interface NotesPopoverProps {
   listingId: number;
   notes: string | null | undefined;
-  tags: string | null | undefined;
   interestLevel: string | null | undefined;
-  onSave: (data: { notes: string; tags: string; interestLevel: string }) => void;
+  onSave: (data: { notes: string; interestLevel: string }) => void;
   isPending: boolean;
 }
 
-function NotesPopover({ listingId, notes, tags, interestLevel, onSave, isPending }: NotesPopoverProps) {
+function NotesPopover({ listingId, notes, interestLevel, onSave, isPending }: NotesPopoverProps) {
   const [open, setOpen] = useState(false);
   const [localNotes, setLocalNotes] = useState(notes || "");
-  const [localTags, setLocalTags] = useState(tags || "");
   const [localInterest, setLocalInterest] = useState(interestLevel || "");
 
   React.useEffect(() => {
     if (open) {
       setLocalNotes(notes || "");
-      setLocalTags(tags || "");
       setLocalInterest(interestLevel || "");
     }
-  }, [open, notes, tags, interestLevel]);
+  }, [open, notes, interestLevel]);
 
   const handleSave = () => {
-    onSave({ notes: localNotes, tags: localTags, interestLevel: localInterest });
+    onSave({ notes: localNotes, interestLevel: localInterest });
     setOpen(false);
   };
-
-  const hasContent = notes || tags || interestLevel;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -112,7 +106,7 @@ function NotesPopover({ listingId, notes, tags, interestLevel, onSave, isPending
         <Button
           variant="ghost"
           size="icon"
-          className={`h-7 w-7 ${hasContent ? "text-primary" : "text-muted-foreground"}`}
+          className="h-7 w-7 text-muted-foreground"
           title="Edit notes, tags & interest"
           data-testid={`btn-notes-${listingId}`}
         >
@@ -136,15 +130,6 @@ function NotesPopover({ listingId, notes, tags, interestLevel, onSave, isPending
           </Select>
         </div>
         <div className="space-y-1">
-          <Label className="text-xs text-muted-foreground">Tags (comma-separated)</Label>
-          <Input
-            value={localTags}
-            onChange={(e) => setLocalTags(e.target.value)}
-            placeholder="e.g. big kitchen, needs work"
-            className="h-8 text-sm"
-          />
-        </div>
-        <div className="space-y-1">
           <Label className="text-xs text-muted-foreground">Notes</Label>
           <Textarea
             value={localNotes}
@@ -166,11 +151,11 @@ export default function Home() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [status, setStatus] = useState<string>("all");
   const [interestLevel, setInterestLevel] = useState<string>("all");
-  const [hasPriceDrop, setHasPriceDrop] = useState(false);
-  const [showArchived, setShowArchived] = useState(false);
+  const [borough, setBorough] = useState<string>("all");
+  const [condoType, setCondoType] = useState<string>("all");
+  const [parkingInfo, setParkingInfo] = useState<string>("all");
   const [sortBy, setSortBy] = useState("updatedAt");
   const [sortDir, setSortDir] = useState("desc");
-  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -184,8 +169,6 @@ export default function Home() {
     search: debouncedSearch || undefined,
     status: status !== "all" ? status : undefined,
     interestLevel: interestLevel !== "all" ? interestLevel : undefined,
-    hasPriceDrop: hasPriceDrop ? "true" : undefined,
-    archived: showArchived ? "true" : "false",
     sortBy,
     sortDir,
   };
@@ -210,12 +193,6 @@ export default function Home() {
     }
   });
 
-  const toggleFavorite = useUpdateListing({
-    mutation: {
-      onSuccess: () => queryClient.invalidateQueries({ queryKey: getGetListingsQueryKey() }),
-    }
-  });
-
   const updateListing = useUpdateListing({
     mutation: {
       onSuccess: () => queryClient.invalidateQueries({ queryKey: getGetListingsQueryKey() }),
@@ -233,41 +210,6 @@ export default function Home() {
       onError: () => toast({ title: "Failed to delete listing", variant: "destructive" }),
     }
   });
-
-  const bulkDelete = useMutation({
-    mutationFn: async (ids: number[]) => {
-      const res = await fetch("/api/listings/bulk-delete", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids }),
-      });
-      if (!res.ok) throw new Error("Bulk delete failed");
-      return res.json() as Promise<{ deleted: number }>;
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: getGetListingsQueryKey() });
-      queryClient.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
-      setSelectedIds(new Set());
-      toast({ title: `Deleted ${data.deleted} listing${data.deleted !== 1 ? "s" : ""}` });
-    },
-    onError: () => toast({ title: "Bulk delete failed", variant: "destructive" }),
-  });
-
-  const allIds = listings?.map((l) => l.id) ?? [];
-  const allSelected = allIds.length > 0 && allIds.every((id) => selectedIds.has(id));
-  const someSelected = selectedIds.size > 0;
-
-  const toggleSelectAll = useCallback(() => {
-    setSelectedIds(allSelected ? new Set() : new Set(allIds));
-  }, [allSelected, allIds]);
-
-  const toggleSelect = useCallback((id: number) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-  }, []);
 
   const fmt = (val: string | null | undefined, suffix = "") =>
     val ? `${val}${suffix}` : "—";
@@ -288,18 +230,6 @@ export default function Home() {
             />
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            {someSelected && (
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={() => bulkDelete.mutate(Array.from(selectedIds))}
-                disabled={bulkDelete.isPending}
-                data-testid="btn-bulk-delete"
-              >
-                <Trash2 className="w-4 h-4 mr-1.5" />
-                Delete {selectedIds.size}
-              </Button>
-            )}
             <AddListingDialog />
             <Button 
               variant="outline" 
@@ -341,6 +271,45 @@ export default function Home() {
             </SelectContent>
           </Select>
 
+          <Select value={borough} onValueChange={setBorough}>
+            <SelectTrigger className="w-[190px] h-7 text-xs" data-testid="filter-borough">
+              <SelectValue placeholder="Borough" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Boroughs</SelectItem>
+              {[...new Set((listings ?? []).map((l) => l.neighborhood).filter(Boolean))].map((item) => (
+                <SelectItem key={item as string} value={item as string}>
+                  {item}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={parkingInfo} onValueChange={setParkingInfo}>
+            <SelectTrigger className="w-[150px] h-7 text-xs" data-testid="filter-parking">
+              <SelectValue placeholder="Parking" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Parking</SelectItem>
+              {[...new Set((listings ?? []).map((l) => l.parkingInfo).filter(Boolean))].map((item) => (
+                <SelectItem key={item as string} value={item as string}>
+                  {item}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={condoType} onValueChange={setCondoType}>
+            <SelectTrigger className="w-[160px] h-7 text-xs" data-testid="filter-condo-type">
+              <SelectValue placeholder="Condo Type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Condo Types</SelectItem>
+              <SelectItem value="Divided">Divided</SelectItem>
+              <SelectItem value="Undivided">Undivided</SelectItem>
+            </SelectContent>
+          </Select>
+
           <Select value={`${sortBy}-${sortDir}`} onValueChange={(v) => {
             const [by, dir] = v.split("-");
             setSortBy(by);
@@ -357,14 +326,6 @@ export default function Home() {
             </SelectContent>
           </Select>
 
-          <div className="flex items-center gap-1.5 border-l pl-3 border-border">
-            <Switch id="price-drop" checked={hasPriceDrop} onCheckedChange={setHasPriceDrop} data-testid="toggle-price-drop" />
-            <Label htmlFor="price-drop" className="text-xs cursor-pointer">Price Drop</Label>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <Switch id="archived" checked={showArchived} onCheckedChange={setShowArchived} data-testid="toggle-archived" />
-            <Label htmlFor="archived" className="text-xs cursor-pointer">Show Hidden</Label>
-          </div>
         </div>
 
         {/* Table */}
@@ -372,47 +333,40 @@ export default function Home() {
           <Table className="text-xs min-w-[1400px]">
             <TableHeader className="bg-muted/50 sticky top-0">
               <TableRow>
-                <TableHead className="w-8 px-2">
-                  <Checkbox checked={allSelected} onCheckedChange={toggleSelectAll} aria-label="Select all" />
-                </TableHead>
-                <TableHead className="w-7 px-1"></TableHead>
                 <TableHead className="min-w-[200px]">Address</TableHead>
                 <TableHead className="w-24">Price</TableHead>
                 <TableHead className="w-28">Specs</TableHead>
                 <TableHead className="w-24">Sqft</TableHead>
                 <TableHead className="w-20">Status</TableHead>
                 <TableHead className="w-28">Condo Type</TableHead>
-                <TableHead className="w-32">Neighborhood</TableHead>
-                <TableHead className="w-20">Year Built</TableHead>
-                <TableHead className="w-16">DOM</TableHead>
+                <TableHead className="w-32">Borough</TableHead>
                 <TableHead className="w-32">Parking</TableHead>
                 <TableHead className="w-24">Condo Fees</TableHead>
                 <TableHead className="w-24">Taxes</TableHead>
-                <TableHead className="w-20">Interest</TableHead>
-                <TableHead className="w-28 text-right">Last Checked</TableHead>
-                <TableHead className="w-44">Notes / Tags</TableHead>
+                <TableHead className="w-16 text-center">Notes</TableHead>
                 <TableHead className="w-10"></TableHead>
+                <TableHead className="w-28 text-right">Last Checked</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoadingListings ? (
                 Array.from({ length: 4 }).map((_, i) => (
                   <TableRow key={i}>
-                    {Array.from({ length: 16 }).map((_, j) => (
+                    {Array.from({ length: 12 }).map((_, j) => (
                       <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>
                     ))}
                   </TableRow>
                 ))
               ) : listings?.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={16} className="h-40 text-center text-muted-foreground">
+                  <TableCell colSpan={12} className="h-40 text-center text-muted-foreground">
                     <div className="flex flex-col items-center justify-center space-y-2">
                       <MapPin className="w-8 h-8 text-muted" />
                       <p>No listings found.</p>
-                      {(debouncedSearch || status !== "all") && (
+                      {(debouncedSearch || status !== "all" || borough !== "all" || parkingInfo !== "all" || condoType !== "all") && (
                         <Button variant="link" size="sm" onClick={() => {
                           setSearch(""); setStatus("all"); setInterestLevel("all");
-                          setHasPriceDrop(false); setShowArchived(false);
+                          setBorough("all"); setParkingInfo("all"); setCondoType("all");
                         }}>Clear Filters</Button>
                       )}
                     </div>
@@ -422,35 +376,9 @@ export default function Home() {
                 listings?.map((listing) => (
                   <TableRow
                     key={listing.id}
-                    className={`group ${listing.hidden ? "opacity-50" : ""}`}
+                    className="group"
                     data-testid={`row-listing-${listing.id}`}
                   >
-                    {/* Checkbox */}
-                    <TableCell className="px-2">
-                      <Checkbox
-                        checked={selectedIds.has(listing.id)}
-                        onCheckedChange={() => toggleSelect(listing.id)}
-                        aria-label={`Select ${listing.id}`}
-                      />
-                    </TableCell>
-
-                    {/* Favorite */}
-                    <TableCell className="px-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 text-muted-foreground hover:text-yellow-500"
-                        data-favorite={listing.favorite}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleFavorite.mutate({ id: listing.id, data: { favorite: !listing.favorite } });
-                        }}
-                        data-testid={`btn-favorite-${listing.id}`}
-                      >
-                        <Star className={`w-3.5 h-3.5 ${listing.favorite ? "fill-yellow-500 text-yellow-500" : ""}`} />
-                      </Button>
-                    </TableCell>
-
                     {/* Address */}
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-1">
@@ -482,7 +410,7 @@ export default function Home() {
                     <TableCell>
                       <div className="flex flex-col">
                         <span className="font-mono font-semibold">{listing.currentPrice || "—"}</span>
-                        {listing.priceDelta && (
+                        {listing.priceDelta && listing.priceDelta !== "0.00" && listing.priceDelta !== "$0.00" && listing.priceDelta !== "0" && listing.priceDelta !== "+0.00" && listing.priceDelta !== "-0.00" && (
                           <span className={`text-[10px] flex items-center ${listing.priceDelta.startsWith("-") ? "text-green-500" : "text-red-500"}`}>
                             {listing.priceDelta.startsWith("-") ? <ArrowDown className="w-2.5 h-2.5 mr-0.5" /> : <ArrowUp className="w-2.5 h-2.5 mr-0.5" />}
                             {listing.priceDelta}
@@ -511,16 +439,8 @@ export default function Home() {
                     {/* Condo Type */}
                     <TableCell className="text-muted-foreground">{fmt(listing.propertyType)}</TableCell>
 
-                    {/* Neighborhood */}
+                    {/* Borough */}
                     <TableCell className="text-muted-foreground">{fmt(listing.neighborhood)}</TableCell>
-
-                    {/* Year Built */}
-                    <TableCell className="text-muted-foreground">{fmt(listing.yearBuilt)}</TableCell>
-
-                    {/* DOM */}
-                    <TableCell className="text-muted-foreground">
-                      {listing.daysOnMarket ? `${listing.daysOnMarket}d` : "—"}
-                    </TableCell>
 
                     {/* Parking */}
                     <TableCell className="text-muted-foreground">{fmt(listing.parkingInfo)}</TableCell>
@@ -531,66 +451,23 @@ export default function Home() {
                     {/* Taxes */}
                     <TableCell className="text-muted-foreground">{fmt(listing.taxes)}</TableCell>
 
-                    {/* Interest */}
-                    <TableCell>
-                      {listing.interestLevel && listing.interestLevel !== "none" ? (
-                        <Badge variant="outline" className={`text-[10px] px-1.5 py-0 h-4
-                          ${listing.interestLevel === "high" ? "border-primary text-primary" : ""}
-                          ${listing.interestLevel === "medium" ? "border-blue-500 text-blue-500" : ""}
-                          ${listing.interestLevel === "low" ? "border-muted-foreground text-muted-foreground" : ""}
-                        `}>
-                          {listing.interestLevel.toUpperCase()}
-                        </Badge>
-                      ) : "—"}
+                    {/* Notes */}
+                    <TableCell className="text-center">
+                      <NotesPopover
+                        listingId={listing.id}
+                        notes={listing.notes}
+                        interestLevel={listing.interestLevel}
+                        isPending={updateListing.isPending}
+                        onSave={(data) => updateListing.mutate({
+                          id: listing.id,
+                          data: {
+                            notes: data.notes || null,
+                            interestLevel: data.interestLevel === "none" ? null : data.interestLevel || null,
+                          }
+                        })}
+                      />
                     </TableCell>
 
-                    {/* Last Checked */}
-                    <TableCell className="text-right text-muted-foreground whitespace-nowrap">
-                      {listing.lastCheckedAt ? (
-                        <span className="flex items-center justify-end gap-1">
-                          <Clock className="w-3 h-3" />
-                          {formatDistanceToNow(new Date(listing.lastCheckedAt), { addSuffix: true })}
-                        </span>
-                      ) : "Never"}
-                    </TableCell>
-
-                    {/* Notes popup */}
-                    <TableCell>
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <div className="min-w-0 flex-1">
-                          {listing.notes && (
-                            <p className="text-[10px] text-muted-foreground truncate max-w-[120px]" title={listing.notes}>
-                              {listing.notes}
-                            </p>
-                          )}
-                          {listing.tags && (
-                            <p className="text-[10px] text-muted-foreground truncate max-w-[120px]" title={listing.tags}>
-                              #{listing.tags.split(",").map(t => t.trim()).join(" #")}
-                            </p>
-                          )}
-                          {!listing.notes && !listing.tags && (
-                            <span className="text-[10px] text-muted-foreground/40 italic">Add notes...</span>
-                          )}
-                        </div>
-                        <NotesPopover
-                          listingId={listing.id}
-                          notes={listing.notes}
-                          tags={listing.tags}
-                          interestLevel={listing.interestLevel}
-                          isPending={updateListing.isPending}
-                          onSave={(data) => updateListing.mutate({
-                            id: listing.id,
-                            data: {
-                              notes: data.notes || null,
-                              tags: data.tags || null,
-                              interestLevel: data.interestLevel === "none" ? null : data.interestLevel || null,
-                            }
-                          })}
-                        />
-                      </div>
-                    </TableCell>
-
-                    {/* Delete */}
                     <TableCell>
                       <Button
                         variant="ghost"
@@ -607,6 +484,17 @@ export default function Home() {
                         <Trash2 className="w-3.5 h-3.5" />
                       </Button>
                     </TableCell>
+
+                    {/* Last Checked */}
+                    <TableCell className="text-right text-muted-foreground whitespace-nowrap">
+                      {listing.lastCheckedAt ? (
+                        <span className="flex items-center justify-end gap-1">
+                          <Clock3 className="w-3 h-3" />
+                          {formatDistanceToNow(new Date(listing.lastCheckedAt), { addSuffix: true })}
+                        </span>
+                      ) : "Never"}
+                    </TableCell>
+
                   </TableRow>
                 ))
               )}

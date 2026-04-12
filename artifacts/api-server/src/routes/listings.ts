@@ -31,6 +31,8 @@ router.get("/listings", async (req, res): Promise<void> => {
     source,
     status,
     interestLevel,
+    neighborhood,
+    parkingInfo,
     hasPriceDrop,
     archived,
     search,
@@ -45,6 +47,8 @@ router.get("/listings", async (req, res): Promise<void> => {
   if (source) conditions.push(eq(listingsTable.sourceSite, source));
   if (status) conditions.push(eq(listingsTable.listingStatus, status));
   if (interestLevel) conditions.push(eq(listingsTable.interestLevel, interestLevel));
+  if (neighborhood) conditions.push(eq(listingsTable.neighborhood, neighborhood));
+  if (parkingInfo) conditions.push(eq(listingsTable.parkingInfo, parkingInfo));
 
   if (hasPriceDrop === "true") {
     conditions.push(sql`${listingsTable.priceDelta}::numeric < 0`);
