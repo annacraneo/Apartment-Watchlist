@@ -93,6 +93,18 @@ export default function Settings() {
     }
   });
 
+  const clearNotifications = useMarkAllNotificationsRead({
+    mutation: {
+      onSuccess: () => {
+        toast({ title: "All notifications cleared" });
+        queryClient.invalidateQueries({ queryKey: getGetNotificationsQueryKey() });
+      },
+      onError: (err) => {
+        toast({ title: "Failed to clear notifications", description: err.message, variant: "destructive" });
+      }
+    }
+  });
+
   function onSubmit(values: z.infer<typeof settingsSchema>) {
     updateSettings.mutate({ data: values });
   }
@@ -319,7 +331,19 @@ export default function Settings() {
                 )}
               />
             </CardContent>
-            <CardFooter className="bg-muted/20 border-t p-4 flex justify-between">
+            <CardFooter className="bg-muted/20 border-t p-4 flex justify-between items-center">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={clearNotifications.isPending}
+                onClick={() => clearNotifications.mutate()}
+                data-testid="btn-clear-notifications"
+              >
+                {clearNotifications.isPending
+                  ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  : <Bell className="w-4 h-4 mr-2" />}
+                Clear All Notifications
+              </Button>
               <Button type="submit" disabled={updateSettings.isPending} data-testid="btn-save-settings">
                 {updateSettings.isPending ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
                 Save Settings

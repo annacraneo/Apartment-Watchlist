@@ -5,11 +5,12 @@ import {
   listingChangesTable,
   notificationsTable,
 } from "@workspace/db";
-import { eq, desc } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { logger } from "../lib/logger.js";
 import { scrapeUrl } from "./scraper.js";
 import { diffListings, changesToInserts } from "./diffEngine.js";
 import { computePriceDelta } from "../parsers/shared.js";
+import { getSettings } from "./settingsService.js";
 
 export interface CheckResult {
   success: boolean;
@@ -18,7 +19,10 @@ export interface CheckResult {
   error?: string;
 }
 
-export async function checkListing(listingId: number): Promise<CheckResult> {
+export async function checkListing(
+  listingId: number,
+  notifyPrefs?: { notifyOnPriceDrop: boolean; notifyOnStatusChange: boolean; notifyOnUnavailable: boolean },
+): Promise<CheckResult> {
   const [listing] = await db
     .select()
     .from(listingsTable)
@@ -31,6 +35,21 @@ export async function checkListing(listingId: number): Promise<CheckResult> {
   logger.info({ listingId, url: listing.listingUrl }, "Checking listing");
 
   const scrapeResult = await scrapeUrl(listing.listingUrl);
+
+  // Load notification preferences if not provided (single-listing check path)
+  let prefs = notifyPrefs;
+  if (!prefs) {
+    try {
+      const settings = await getSettings();
+      prefs = {
+        notifyOnPriceDrop: settings.notifyOnPriceDrop,
+        notifyOnStatusChange: settings.notifyOnStatusChange,
+        notifyOnUnavailable: settings.notifyOnUnavailable,
+      };
+    } catch {
+      prefs = { notifyOnPriceDrop: true, notifyOnStatusChange: true, notifyOnUnavailable: true };
+    }
+  }
 
   // Record snapshot
   await db.insert(listingSnapshotsTable).values({
@@ -49,8 +68,8 @@ export async function checkListing(listingId: number): Promise<CheckResult> {
       .set({ listingStatus: "unavailable", lastCheckedAt: new Date() })
       .where(eq(listingsTable.id, listingId));
 
-    // Create notification if it was previously not unavailable
-    if (listing.listingStatus !== "unavailable") {
+    // Create notification if it was previously not unavailable and user wants these
+    if (listing.listingStatus !== "unavailable" && prefs.notifyOnUnavailable) {
       await createNotification(
         listingId,
         "unavailable",
@@ -79,21 +98,26 @@ export async function checkListing(listingId: number): Promise<CheckResult> {
     insertedChanges = await db.insert(listingChangesTable).values(inserts).returning();
     logger.info({ listingId, changes: detectedChanges.length }, "Changes detected");
 
-    // Create notifications for significant changes
+    // Create notifications for significant changes, gated by user preferences
     for (const change of detectedChanges) {
-      if (change.changeType === "price_drop") {
+      if (change.changeType === "price_drop" && prefs.notifyOnPriceDrop) {
         await createNotification(
           listingId,
           "price_drop",
           `Price dropped for "${listing.title || listing.listingUrl}": ${change.oldValue} → ${change.newValue}`,
         );
-      } else if (change.changeType === "price_increase") {
+      } else if (change.changeType === "price_increase" && prefs.notifyOnPriceDrop) {
         await createNotification(
           listingId,
           "price_increase",
           `Price increased for "${listing.title || listing.listingUrl}": ${change.oldValue} → ${change.newValue}`,
         );
-      } else if (change.changeType === "status_change" || change.changeType === "removed" || change.changeType === "restored") {
+      } else if (
+        (change.changeType === "status_change" ||
+          change.changeType === "removed" ||
+          change.changeType === "restored") &&
+        prefs.notifyOnStatusChange
+      ) {
         await createNotification(
           listingId,
           change.changeType,
@@ -160,6 +184,20 @@ async function createNotification(listingId: number, type: string, message: stri
 }
 
 export async function checkAllListings(): Promise<{ checked: number; totalChanges: number }> {
+  // Load notification preferences once for the entire batch run
+  let prefs: { notifyOnPriceDrop: boolean; notifyOnStatusChange: boolean; notifyOnUnavailable: boolean };
+  try {
+    const settings = await getSettings();
+    prefs = {
+      notifyOnPriceDrop: settings.notifyOnPriceDrop,
+      notifyOnStatusChange: settings.notifyOnStatusChange,
+      notifyOnUnavailable: settings.notifyOnUnavailable,
+    };
+  } catch {
+    prefs = { notifyOnPriceDrop: true, notifyOnStatusChange: true, notifyOnUnavailable: true };
+  }
+
+  // Only check non-hidden (non-archived) listings
   const listings = await db
     .select()
     .from(listingsTable)
@@ -167,9 +205,9 @@ export async function checkAllListings(): Promise<{ checked: number; totalChange
 
   let totalChanges = 0;
   for (const listing of listings) {
-    const result = await checkListing(listing.id);
+    const result = await checkListing(listing.id, prefs);
     totalChanges += result.changesDetected;
-    // Small delay to be polite
+    // Small delay between requests to be polite to servers
     await new Promise((r) => setTimeout(r, 500));
   }
 

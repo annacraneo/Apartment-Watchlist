@@ -74,12 +74,13 @@ router.get("/listings", async (req, res): Promise<void> => {
 
   const validSortFields: Record<string, typeof listingsTable.id> = {
     firstSavedAt: listingsTable.firstSavedAt as unknown as typeof listingsTable.id,
+    updatedAt: listingsTable.updatedAt as unknown as typeof listingsTable.id,
     lastCheckedAt: listingsTable.lastCheckedAt as unknown as typeof listingsTable.id,
     currentPrice: listingsTable.currentPrice as unknown as typeof listingsTable.id,
     priceDelta: listingsTable.priceDelta as unknown as typeof listingsTable.id,
   };
 
-  const sortCol = validSortFields[sortBy || "firstSavedAt"] || listingsTable.firstSavedAt;
+  const sortCol = validSortFields[sortBy || "updatedAt"] || listingsTable.updatedAt;
   query = query.orderBy(sortDir === "asc" ? sortCol : desc(sortCol));
 
   const listings = await query;

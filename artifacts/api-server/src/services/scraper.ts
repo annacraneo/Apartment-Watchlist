@@ -2,6 +2,7 @@ import { logger } from "../lib/logger.js";
 import { parseHtml, type NormalizedListing } from "../parsers/index.js";
 import { emptyNormalized } from "../parsers/shared.js";
 import { getBrowseAiSettings, fetchViaBrowseAi } from "./browseAI.js";
+import { getSettings } from "./settingsService.js";
 
 const FETCH_TIMEOUT_MS = 15000;
 
@@ -57,23 +58,55 @@ function mockScrapeResult(url: string): ScrapeResult {
   return { success: true, data, errorMessage: null };
 }
 
+/**
+ * Resolve the effective extraction mode for a given URL.
+ *
+ * Precedence: per-source override (centrisExtractionMode / realtorExtractionMode)
+ * > global extractionMode > default "native".
+ */
+async function resolveExtractionMode(url: string): Promise<"native" | "browse_ai"> {
+  try {
+    const settings = await getSettings();
+    const isCentris = url.includes("centris.ca");
+    const isRealtor = url.includes("realtor.ca");
+
+    let effectiveMode: string | null = null;
+
+    if (isCentris && settings.centrisExtractionMode) {
+      effectiveMode = settings.centrisExtractionMode;
+    } else if (isRealtor && settings.realtorExtractionMode) {
+      effectiveMode = settings.realtorExtractionMode;
+    } else {
+      effectiveMode = settings.extractionMode;
+    }
+
+    return effectiveMode === "browse_ai" ? "browse_ai" : "native";
+  } catch {
+    return "native";
+  }
+}
+
 export async function scrapeUrl(url: string): Promise<ScrapeResult> {
   if (process.env["MOCK_MODE"] === "true") {
     return mockScrapeResult(url);
   }
 
-  // Check if Browse AI is configured for this source
-  const browseAiSettings = await getBrowseAiSettings();
+  const mode = await resolveExtractionMode(url);
 
-  if (browseAiSettings.enabled) {
-    logger.info({ url }, "Attempting Browse AI extraction");
-    try {
-      const data = await fetchViaBrowseAi(url, browseAiSettings);
-      if (data) {
-        return { success: true, data, errorMessage: null };
+  if (mode === "browse_ai") {
+    const browseAiSettings = await getBrowseAiSettings();
+    if (browseAiSettings.enabled) {
+      logger.info({ url }, "Attempting Browse AI extraction");
+      try {
+        const data = await fetchViaBrowseAi(url, browseAiSettings);
+        if (data) {
+          return { success: true, data, errorMessage: null };
+        }
+      } catch (err) {
+        logger.warn({ url, err }, "Browse AI extraction failed, falling back to native");
       }
-    } catch (err) {
-      logger.warn({ url, err }, "Browse AI extraction failed, falling back to native");
+    } else {
+      logger.warn({ url }, "Browse AI mode requested but not configured; falling back to native");
     }
   }
 
