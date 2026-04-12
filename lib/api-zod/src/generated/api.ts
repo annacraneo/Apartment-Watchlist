@@ -71,6 +71,8 @@ export const GetListingsResponseItem = zod.object({
   firstSavedAt: zod.string(),
   updatedAt: zod.string(),
   rawData: zod.string().nullish(),
+  nearestMetro: zod.string().nullish(),
+  walkingMinutes: zod.number().nullish(),
 });
 export const GetListingsResponse = zod.array(GetListingsResponseItem);
 
@@ -393,7 +395,7 @@ export const UpdateSettingsBody = zod.object({
   centrisExtractionMode: zod.string().nullish(),
   realtorExtractionMode: zod.string().nullish(),
   notifyOnPriceDrop: zod.boolean(),
-  notifyOnStatusChange: zod.boolean(),
+  notifyOnStatusChange: zod.boolean().optional(),
   notifyOnUnavailable: zod.boolean(),
 });
 

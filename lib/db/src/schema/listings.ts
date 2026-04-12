@@ -45,6 +45,8 @@ export const listingsTable = pgTable("listings", {
   firstSavedAt: timestamp("first_saved_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
   rawData: text("raw_data"),
+  nearestMetro: text("nearest_metro"),
+  walkingMinutes: integer("walking_minutes"),
 });
 
 export const insertListingSchema = createInsertSchema(listingsTable).omit({

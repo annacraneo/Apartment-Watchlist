@@ -98,6 +98,10 @@ export interface Listing {
   updatedAt: string;
   /** @nullable */
   rawData?: string | null;
+  /** @nullable */
+  nearestMetro?: string | null;
+  /** @nullable */
+  walkingMinutes?: number | null;
 }
 
 export interface CreateListingBody {
@@ -193,7 +197,8 @@ export interface AppSettings {
   /** @nullable */
   realtorExtractionMode?: string | null;
   notifyOnPriceDrop: boolean;
-  notifyOnStatusChange: boolean;
+  /** @nullable */
+  notifyOnStatusChange?: boolean | null;
   notifyOnUnavailable: boolean;
 }
 

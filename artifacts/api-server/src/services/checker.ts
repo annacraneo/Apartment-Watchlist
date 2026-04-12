@@ -11,6 +11,7 @@ import { scrapeUrl } from "./scraper.js";
 import { diffListings, changesToInserts } from "./diffEngine.js";
 import { computePriceDelta } from "../parsers/shared.js";
 import { getSettings } from "./settingsService.js";
+import { computeMetroProximity } from "./metroService.js";
 
 export interface CheckResult {
   success: boolean;
@@ -181,6 +182,25 @@ export async function checkListing(
       lastCheckedAt: new Date(),
     })
     .where(eq(listingsTable.id, listingId));
+
+  // Compute metro proximity if not already stored
+  if (!listing.nearestMetro) {
+    try {
+      const metro = await computeMetroProximity(
+        newData.latitude ?? listing.latitude,
+        newData.longitude ?? listing.longitude,
+        newData.address ?? listing.address,
+      );
+      if (metro) {
+        await db
+          .update(listingsTable)
+          .set({ nearestMetro: metro.name, walkingMinutes: metro.walkingMinutes })
+          .where(eq(listingsTable.id, listingId));
+      }
+    } catch (err) {
+      logger.warn({ listingId, err }, "Metro proximity computation failed");
+    }
+  }
 
   return {
     success: true,

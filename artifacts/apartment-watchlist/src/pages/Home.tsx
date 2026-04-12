@@ -381,6 +381,7 @@ export default function Home() {
                 <TableHead className="w-32">Borough</TableHead>
                 <TableHead className="w-20">Interest</TableHead>
                 <TableHead className="w-32">Parking</TableHead>
+                <TableHead className="w-28">Metro</TableHead>
                 <TableHead className="w-24">Condo Fees</TableHead>
                 <TableHead className="w-24">Taxes</TableHead>
                 <TableHead className="w-16 text-center">Notes</TableHead>
@@ -392,14 +393,14 @@ export default function Home() {
               {isLoadingListings ? (
                 Array.from({ length: 4 }).map((_, i) => (
                   <TableRow key={i}>
-                    {Array.from({ length: 13 }).map((_, j) => (
+                    {Array.from({ length: 16 }).map((_, j) => (
                       <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>
                     ))}
                   </TableRow>
                 ))
               ) : listings?.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={13} className="h-40 text-center text-muted-foreground">
+                  <TableCell colSpan={16} className="h-40 text-center text-muted-foreground">
                     <div className="flex flex-col items-center justify-center space-y-2">
                       <MapPin className="w-8 h-8 text-muted" />
                       <p>No listings found.</p>
@@ -512,6 +513,16 @@ export default function Home() {
 
                     {/* Parking */}
                     <TableCell className="text-muted-foreground">{fmt(listing.parkingInfo)}</TableCell>
+
+                    {/* Metro */}
+                    <TableCell>
+                      {listing.nearestMetro ? (
+                        <div className="flex flex-col">
+                          <span className="text-xs font-medium truncate">{listing.nearestMetro}</span>
+                          <span className="text-[10px] text-muted-foreground">{listing.walkingMinutes} min walk</span>
+                        </div>
+                      ) : "—"}
+                    </TableCell>
 
                     {/* Condo Fees */}
                     <TableCell className="text-muted-foreground">{fmt(listing.condoFees)}</TableCell>

@@ -22,6 +22,7 @@ import { logger } from "../lib/logger.js";
 import { scrapeUrl, validateListingUrl } from "../services/scraper.js";
 import { checkListing, checkAllListings } from "../services/checker.js";
 import { computePriceDelta } from "../parsers/shared.js";
+import { computeMetroProximity } from "../services/metroService.js";
 
 const router: IRouter = Router();
 
@@ -184,6 +185,19 @@ router.post("/listings", async (req, res): Promise<void> => {
           currentPrice: data.currentPrice,
           fetchSuccess: true,
         });
+
+        // Compute nearest metro station
+        try {
+          const metro = await computeMetroProximity(data.latitude, data.longitude, data.address);
+          if (metro) {
+            await db
+              .update(listingsTable)
+              .set({ nearestMetro: metro.name, walkingMinutes: metro.walkingMinutes })
+              .where(eq(listingsTable.id, listing.id));
+          }
+        } catch (err) {
+          logger.warn({ id: listing.id, err }, "Metro proximity computation failed");
+        }
       } else {
         await db
           .update(listingsTable)
