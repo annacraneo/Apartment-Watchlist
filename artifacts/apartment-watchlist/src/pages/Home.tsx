@@ -616,12 +616,12 @@ export default function Home() {
                       aria-label="Select all"
                     />
                   </TableHead>
+                  <TableHead className="w-8"></TableHead>
                   <TableHead className="min-w-[220px]">Address</TableHead>
                   <TableHead className="w-28">Price</TableHead>
                   <TableHead className="w-32">Price History</TableHead>
                   <TableHead className="w-28">Specs</TableHead>
                   <TableHead className="w-24">Sqft</TableHead>
-                  <TableHead className="w-20">Status</TableHead>
                   <TableHead className="w-28">Type</TableHead>
                   <TableHead className="w-32">Borough</TableHead>
                   <TableHead className="w-20">Interest</TableHead>
@@ -666,6 +666,14 @@ export default function Home() {
                               });
                             }}
                             aria-label={`Select ${listing.id}`}
+                          />
+                        </TableCell>
+
+                        {/* Status icon */}
+                        <TableCell className="px-1">
+                          <span
+                            title={listing.listingStatus ?? "unknown"}
+                            className={`block w-2 h-2 rounded-full ${listing.listingStatus === "active" ? "bg-emerald-500" : "bg-red-500"}`}
                           />
                         </TableCell>
 
@@ -727,9 +735,6 @@ export default function Home() {
                         <TableCell className="text-muted-foreground tabular-nums">
                           {listing.squareFeet ? `${listing.squareFeet}` : "—"}
                         </TableCell>
-
-                        {/* Status */}
-                        <TableCell><StatusBadge status={listing.listingStatus} /></TableCell>
 
                         {/* Type */}
                         <TableCell className="text-muted-foreground">{fmt(listing.propertyType)}</TableCell>
