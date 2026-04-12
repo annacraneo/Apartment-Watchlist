@@ -2,9 +2,9 @@ import React from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { 
-  useGetSettings, 
-  useUpdateSettings, 
+import {
+  useGetSettings,
+  useUpdateSettings,
   useMarkAllNotificationsRead,
   getGetSettingsQueryKey,
   getGetNotificationsQueryKey
@@ -113,7 +113,6 @@ export default function Settings() {
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-          
           <Card>
             <CardHeader>
               <CardTitle>Extraction Engine</CardTitle>
@@ -143,7 +142,6 @@ export default function Settings() {
                     </FormItem>
                   )}
                 />
-                
                 <FormField
                   control={form.control}
                   name="checkIntervalHours"
@@ -215,6 +213,8 @@ export default function Settings() {
                   </CardContent>
                 </Card>
               )}
+            </CardContent>
+          </Card>
 
           <Card>
             <CardHeader>
