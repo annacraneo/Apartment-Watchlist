@@ -53,7 +53,6 @@ export function Header() {
             APT.WATCH
           </Link>
           <nav className="hidden md:flex items-center space-x-4 text-sm">
-            <Link href="/" className="text-muted-foreground hover:text-foreground transition-colors" data-testid="link-watchlist">Watchlist</Link>
             <Link href="/settings" className="text-muted-foreground hover:text-foreground transition-colors" data-testid="link-settings">Settings</Link>
           </nav>
         </div>
