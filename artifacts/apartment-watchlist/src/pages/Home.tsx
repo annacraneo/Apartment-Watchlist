@@ -486,8 +486,8 @@ export default function Home() {
                   <TableHead className="w-20">Interest</TableHead>
                   <TableHead className="w-32">Parking</TableHead>
                   <TableHead className="w-28">Metro</TableHead>
-                  <TableHead className="w-24">Fees/mo</TableHead>
-                  <TableHead className="w-24">Tax/mo</TableHead>
+                  <TableHead className="w-24">Fees</TableHead>
+                  <TableHead className="w-24">Tax</TableHead>
                   <TableHead className="w-10 text-center">Notes</TableHead>
                   <TableHead className="w-10"></TableHead>
                   <TableHead className="w-28 text-right">Last Checked</TableHead>
