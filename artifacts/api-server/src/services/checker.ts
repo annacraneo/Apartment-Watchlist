@@ -62,14 +62,27 @@ export async function checkListing(
   });
 
   if (!scrapeResult.success || !scrapeResult.data) {
+    const wasUnavailable = listing.listingStatus === "unavailable";
+
     // Mark as unavailable
     await db
       .update(listingsTable)
       .set({ listingStatus: "unavailable", lastCheckedAt: new Date() })
       .where(eq(listingsTable.id, listingId));
 
-    // Create notification if it was previously not unavailable and user wants these
-    if (listing.listingStatus !== "unavailable" && prefs.notifyOnUnavailable) {
+    // Record a change row for this status transition (for auditable history)
+    if (!wasUnavailable) {
+      await db.insert(listingChangesTable).values({
+        listingId,
+        fieldName: "listingStatus",
+        oldValue: listing.listingStatus ?? "active",
+        newValue: "unavailable",
+        changeType: "status_change",
+      });
+    }
+
+    // Create notification if status changed and user wants these
+    if (!wasUnavailable && prefs.notifyOnUnavailable) {
       await createNotification(
         listingId,
         "unavailable",
@@ -79,7 +92,7 @@ export async function checkListing(
 
     return {
       success: false,
-      changesDetected: 0,
+      changesDetected: wasUnavailable ? 0 : 1,
       changes: [],
       error: scrapeResult.errorMessage || "Fetch failed",
     };
