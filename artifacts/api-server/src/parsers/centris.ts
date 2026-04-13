@@ -198,58 +198,67 @@ export function parseCentris(html: string, url: string): NormalizedListing {
     }
 
     // ── 12. Financial table — condo fees & taxes ─────────────────────────────
-    // Centris financial table structure (two columns: monthly / yearly):
-    //   <tr><td>Condominium fees</td><td>$208</td><td>$2,496</td></tr>
-    //   <tr><td>Municipal (2026)</td><td>$206</td><td>$2,473</td></tr>
+    // Centris renders TWO separate table sets in the HTML: one for monthly and one
+    // for yearly (toggled by JS). The monthly set has `display:none` by default.
+    // Each set contains sub-tables for Taxes and Fees, each with a <tfoot> Total row.
     //
-    // IMPORTANT: "Municipal assessment (2026)" rows contain the *assessed value*
-    // (e.g. $137,100) — NOT the tax. We must skip those.
-    // Only real dollar amounts preceded by "$" are valid (not year numbers like 2026).
-    const extractDollarAmounts = (cells: string[]): string[] =>
-      cells.flatMap(c => {
-        const m = c.match(/\$([\d,]+)/g);
-        return m ? m.map(s => s.replace(/[$,]/g, "")) : [];
+    // Strategy: read from .financial-details-table-monthly, extract the <tfoot> total
+    // from the "Taxes" sub-table and the "Fees" sub-table. This gives us the correct
+    // combined monthly totals (e.g. $230/mo taxes, $243/mo fees) that match the UI.
+
+    const parseTotalFromMonthlyTable = (sectionTitle: RegExp): number | null => {
+      const monthlyContainer = $(".financial-details-table-monthly");
+      let found: number | null = null;
+      const container = monthlyContainer.length ? monthlyContainer : $(".financial-details-table").first();
+      container.find("table").each((_, table) => {
+        const titleEl = $(table).find(".financial-details-table-title");
+        if (titleEl.length && sectionTitle.test(titleEl.text())) {
+          const totalEl = $(table).find(".financial-details-table-total td").last();
+          if (totalEl.length) {
+            const raw = totalEl.text().replace(/[$,\s]/g, "");
+            const num = Number(raw);
+            if (!isNaN(num) && num > 0) found = num;
+          }
+        }
       });
+      return found;
+    };
 
-    // Centris renders the financial table with monthly AND yearly values as separate
-    // rows (controlled by a monthly/yearly toggle). We collect all matching rows and
-    // pick the largest dollar amount, which is always the annual value.
-    const condoFeeAmounts: number[] = [];
-    const municipalTaxAmounts: number[] = [];
+    const monthlyFees = parseTotalFromMonthlyTable(/fees/i);
+    const monthlyTaxes = parseTotalFromMonthlyTable(/taxes/i);
 
-    $("tr").each((_, row) => {
-      const cells = $(row).find("td, th").map((_, td) => $(td).text().replace(/\s+/g, " ").trim()).toArray();
-      const rowText = cells.join(" ");
+    if (monthlyFees !== null) {
+      result.condoFees = `$${monthlyFees.toLocaleString()}/mo`;
+    }
+    if (monthlyTaxes !== null) {
+      result.taxes = `$${monthlyTaxes.toLocaleString()}/mo`;
+    }
 
-      if (/condominium\s*fees?|frais\s*de\s*copropri/i.test(rowText)) {
-        extractDollarAmounts(cells).forEach(a => condoFeeAmounts.push(Number(a.replace(/,/g, ""))));
+    // Fallback: scan all tr rows if the structured approach above yielded nothing
+    if (!result.condoFees || !result.taxes) {
+      const extractDollarAmounts = (cells: string[]): number[] =>
+        cells.flatMap(c => {
+          const m = c.match(/\$([\d,]+)/g);
+          return m ? m.map(s => Number(s.replace(/[$,]/g, ""))) : [];
+        });
+      const condoFeeAmounts: number[] = [];
+      const municipalTaxAmounts: number[] = [];
+      $("tr").each((_, row) => {
+        const cells = $(row).find("td, th").map((_, td) => $(td).text().replace(/\s+/g, " ").trim()).toArray();
+        const rowText = cells.join(" ");
+        if (!result.condoFees && /condominium\s*fees?|frais\s*de\s*copropri/i.test(rowText)) {
+          extractDollarAmounts(cells).forEach(a => condoFeeAmounts.push(a));
+        }
+        if (!result.taxes && /municipal\s*\(\d{4}\)/i.test(rowText) && !/assessment|évaluation/i.test(rowText)) {
+          extractDollarAmounts(cells).forEach(a => municipalTaxAmounts.push(a));
+        }
+      });
+      if (!result.condoFees && condoFeeAmounts.length > 0) {
+        result.condoFees = `$${Math.min(...condoFeeAmounts).toLocaleString()}/mo`;
       }
-
-      // "Municipal (YYYY)" but NOT "Municipal assessment" (which is the assessed value)
-      if (/municipal\s*\(\d{4}\)/i.test(rowText) && !/assessment|évaluation/i.test(rowText)) {
-        extractDollarAmounts(cells).forEach(a => municipalTaxAmounts.push(Number(a.replace(/,/g, ""))));
+      if (!result.taxes && municipalTaxAmounts.length > 0) {
+        result.taxes = `$${Math.min(...municipalTaxAmounts).toLocaleString()}/mo`;
       }
-    });
-
-    if (condoFeeAmounts.length > 0) {
-      // Smallest value = monthly, largest = yearly; display monthly
-      const monthly = Math.min(...condoFeeAmounts);
-      result.condoFees = `$${monthly.toLocaleString()}/mo`;
-    }
-    if (municipalTaxAmounts.length > 0) {
-      // Largest value = yearly
-      const yearly = Math.max(...municipalTaxAmounts);
-      result.taxes = `$${yearly.toLocaleString()}/yr`;
-    }
-
-    // Fallback regex for condo fees / taxes
-    if (!result.condoFees) {
-      const condoMatch = html.match(/(?:condominium\s*fees?|frais\s*de\s*copropri[eé]t[eé])[^$]*\$([\d,]+)/i);
-      if (condoMatch) result.condoFees = `$${condoMatch[1]}`;
-    }
-    if (!result.taxes) {
-      const taxMatch = html.match(/Municipal\s*\(\d{4}\)[^$]*\$([\d,]+)[^$]*\$([\d,]+)/i);
-      if (taxMatch) result.taxes = `$${taxMatch[2]}/yr`;
     }
 
     // ── 13. Listing status ───────────────────────────────────────────────────
@@ -285,11 +294,24 @@ export function parseCentris(html: string, url: string): NormalizedListing {
     }
 
     // ── 16. Images ───────────────────────────────────────────────────────────
+    // Centris property photos are served from mspublic.centris.ca/media.ashx
+    // (no file extension — query-string based). CDN images at cdn.centris.ca
+    // include blog/menu graphics that should be excluded.
     const imgs: string[] = [];
     $("img[src], img[data-src]").each((_, el) => {
       const src = $(el).attr("src") || $(el).attr("data-src") || "";
-      if (src && /\.(jpg|jpeg|png|webp)/i.test(src) && !/icon|logo|avatar|sprite/i.test(src)) {
-        const full = src.startsWith("http") ? src : `https://www.centris.ca${src}`;
+      if (!src) return;
+      const full = src.startsWith("http") ? src : `https://www.centris.ca${src}`;
+      // Priority: Centris media server (property photos, no extension).
+      // Only include property images (t=pi) — skip broker headshots (t=c) and logos (t=b).
+      if (/mspublic\.centris\.ca\/media\.ashx/i.test(full)) {
+        if (/[?&]t=pi\b/i.test(full) && !imgs.includes(full)) imgs.push(full);
+        return;
+      }
+      // Regular image with extension — exclude blog/menu/icon/logo CDN assets
+      if (/\.(jpg|jpeg|png|webp)/i.test(full) &&
+          !/icon|logo|avatar|sprite|blog_|menu\//i.test(full) &&
+          !/centris\.ca\/public\/qc\/consumersite/i.test(full)) {
         if (!imgs.includes(full)) imgs.push(full);
       }
     });
