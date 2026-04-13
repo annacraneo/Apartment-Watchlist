@@ -34,6 +34,7 @@ import {
   ChevronUp,
   ChevronDown,
   ChevronsUpDown,
+  MoreVertical,
 } from "lucide-react";
 import { format, differenceInMinutes, differenceInHours, differenceInDays } from "date-fns";
 
@@ -61,6 +62,12 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 
 import { AddListingDialog } from "@/components/AddListingDialog";
@@ -571,6 +578,7 @@ export default function Home() {
                   <TableHead className="w-24">Tax</TableHead>
                   <TableHead className="w-10 text-center">Notes</TableHead>
                   <TableHead className="w-28 text-left">Last Checked</TableHead>
+                  <TableHead className="w-8"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -713,6 +721,31 @@ export default function Home() {
                         {/* Last checked */}
                         <TableCell className="text-left text-muted-foreground tabular-nums">
                           {timeAgo(listing.updatedAt)}
+                        </TableCell>
+
+                        {/* Row actions */}
+                        <TableCell className="px-1">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <MoreVertical className="w-3.5 h-3.5" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                className="text-destructive focus:text-destructive focus:bg-destructive/10 gap-2"
+                                onClick={() => deleteListing.mutate({ id: listing.id })}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                Delete listing
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </TableCell>
                       </TableRow>
                     );
