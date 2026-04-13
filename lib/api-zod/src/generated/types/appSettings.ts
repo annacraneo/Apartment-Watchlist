@@ -19,7 +19,6 @@ export interface AppSettings {
   centrisExtractionMode?: string | null;
   /** @nullable */
   realtorExtractionMode?: string | null;
-  browseAiInitialPriceCheck: boolean;
   notifyOnPriceDrop: boolean;
   notifyOnStatusChange: boolean;
   notifyOnUnavailable: boolean;

@@ -8,8 +8,7 @@ export type ChangeType =
   | "description_change"
   | "removed"
   | "restored"
-  | "metadata_change"
-  | "historical_price";
+  | "metadata_change";
 
 export interface DetectedChange {
   fieldName: string;

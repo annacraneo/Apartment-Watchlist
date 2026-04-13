@@ -23,8 +23,6 @@ import { scrapeUrl, validateListingUrl } from "../services/scraper.js";
 import { checkListing, checkAllListings } from "../services/checker.js";
 import { computePriceDelta } from "../parsers/shared.js";
 import { computeMetroProximity } from "../services/metroService.js";
-import { getBrowseAiSettings, enrichWithBrowseAiPriceHistory } from "../services/browseAI.js";
-import { getSettings } from "../services/settingsService.js";
 
 const router: IRouter = Router();
 
@@ -202,23 +200,6 @@ router.post("/listings", async (req, res): Promise<void> => {
         } catch (err) {
           logger.warn({ id: listing.id, err }, "Metro proximity computation failed");
         }
-
-        // Browse AI initial price check — fire-and-forget, non-blocking
-        getSettings()
-          .then(async (settings) => {
-            if (!settings.browseAiInitialPriceCheck) return;
-            const browseAiSettings = await getBrowseAiSettings();
-            if (!browseAiSettings.enabled) return;
-            await enrichWithBrowseAiPriceHistory(
-              listing.id,
-              listingUrl.trim(),
-              data.currentPrice,
-              browseAiSettings,
-            );
-          })
-          .catch((err) => {
-            logger.warn({ id: listing.id, err }, "Browse AI initial price check failed (non-fatal)");
-          });
       } else {
         await db
           .update(listingsTable)
