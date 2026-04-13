@@ -10,7 +10,7 @@ import {
   getGetNotificationsQueryKey
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Settings as SettingsIcon, Save, Key, Bot, Shield, Bell, RefreshCw } from "lucide-react";
+import { Settings as SettingsIcon, Save, Key, Bot, Shield, Bell, RefreshCw, TrendingDown } from "lucide-react";
 
 import {
   Form,
@@ -36,6 +36,7 @@ const settingsSchema = z.object({
   browseAiApiKey: z.string().optional(),
   browseAiRobotId: z.string().optional(),
   browseAiWebhookSecret: z.string().optional(),
+  browseAiInitialPriceCheck: z.boolean(),
   notifyOnPriceDrop: z.boolean(),
   notifyOnUnavailable: z.boolean(),
 });
@@ -53,6 +54,7 @@ export default function Settings() {
       browseAiApiKey: "",
       browseAiRobotId: "",
       browseAiWebhookSecret: "",
+      browseAiInitialPriceCheck: true,
       notifyOnPriceDrop: true,
       notifyOnUnavailable: true,
     },
@@ -66,6 +68,7 @@ export default function Settings() {
         browseAiApiKey: settings.browseAiApiKey || "",
         browseAiRobotId: settings.browseAiRobotId || "",
         browseAiWebhookSecret: settings.browseAiWebhookSecret || "",
+        browseAiInitialPriceCheck: settings.browseAiInitialPriceCheck ?? true,
         notifyOnPriceDrop: settings.notifyOnPriceDrop,
         notifyOnUnavailable: settings.notifyOnUnavailable,
       });
@@ -99,6 +102,18 @@ export default function Settings() {
   function onSubmit(values: z.infer<typeof settingsSchema>) {
     updateSettings.mutate({ data: values });
   }
+
+  const watchedApiKey = form.watch("browseAiApiKey");
+  const watchedRobotId = form.watch("browseAiRobotId");
+  const watchedMode = form.watch("extractionMode");
+
+  // Show Browse AI credentials panel if: global mode is browse_ai OR creds are already set
+  const showBrowseAiPanel =
+    watchedMode === "browse_ai" ||
+    !!watchedApiKey ||
+    !!watchedRobotId ||
+    !!(settings?.browseAiApiKey) ||
+    !!(settings?.browseAiRobotId);
 
   if (isLoading) {
     return <div className="p-6 container mx-auto max-w-4xl space-y-6"><Skeleton className="h-64 w-full" /></div>;
@@ -160,14 +175,18 @@ export default function Settings() {
 
               <Separator />
 
-              {form.watch("extractionMode") === "browse_ai" && (
+              {/* Browse AI credentials — shown when mode is browse_ai OR when creds already exist */}
+              {showBrowseAiPanel && (
                 <Card className="border-primary/50">
                   <CardHeader className="bg-primary/5">
                     <CardTitle className="flex items-center text-primary">
                       <Bot className="w-5 h-5 mr-2" />
                       Browse AI Configuration
                     </CardTitle>
-                    <CardDescription>Required credentials for using the Browse AI extraction engine.</CardDescription>
+                    <CardDescription>
+                      Credentials for the Browse AI extraction engine. Required for global Browse AI
+                      mode and for the initial price-history check below.
+                    </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4 mt-4">
                     <FormField
@@ -210,8 +229,46 @@ export default function Settings() {
                         </FormItem>
                       )}
                     />
+
+                    <Separator />
+
+                    <FormField
+                      control={form.control}
+                      name="browseAiInitialPriceCheck"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 bg-background shadow-sm">
+                          <div className="space-y-0.5">
+                            <FormLabel className="text-base font-semibold flex items-center gap-1.5">
+                              <TrendingDown className="w-4 h-4 text-primary" />
+                              Initial Price History Check
+                            </FormLabel>
+                            <FormDescription>
+                              When a listing is first added, Browse AI runs once to detect if the price was
+                              previously higher. Any discovered price drops are recorded in the listing's
+                              history. Has no effect if Browse AI credentials are not set.
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                              data-testid="toggle-browse-ai-initial-price"
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
                   </CardContent>
                 </Card>
+              )}
+
+              {/* Prompt to enter Browse AI creds if mode is native and no creds yet */}
+              {!showBrowseAiPanel && (
+                <p className="text-sm text-muted-foreground">
+                  To enable Browse AI (for full extraction or initial price-history checks), switch the
+                  mode above to <strong>Browse AI</strong> and enter your credentials, or enter your
+                  API key directly — the panel will appear automatically.
+                </p>
               )}
             </CardContent>
           </Card>
