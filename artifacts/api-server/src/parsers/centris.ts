@@ -56,6 +56,16 @@ export function parseCentris(html: string, url: string): NormalizedListing {
       } catch {}
     });
 
+    // Coordinate fallback: Centris embeds GPS in a Google Maps URL like
+    // maps?z=15&hl=en&q=45.54392018,-73.53761388
+    if (!result.latitude || !result.longitude) {
+      const coordMatch = html.match(/[?&]q=(45\.\d{4,}),(-73\.\d{4,})/);
+      if (coordMatch) {
+        result.latitude = coordMatch[1];
+        result.longitude = coordMatch[2];
+      }
+    }
+
     // Fallback: h1 or address-like element
     if (!result.address) {
       const h1 = $("h1").first().text().trim();
