@@ -91,7 +91,8 @@ router.get("/listings", async (req, res): Promise<void> => {
   };
 
   const sortCol: Column = validSortFields[sortBy || "updatedAt"] ?? listingsTable.updatedAt;
-  query = query.orderBy(sortDir === "asc" ? asc(sortCol) : desc(sortCol));
+  // visitNext listings always float to the top, then sort by the chosen column
+  query = query.orderBy(desc(listingsTable.visitNext), sortDir === "asc" ? asc(sortCol) : desc(sortCol));
 
   const listings = await query;
   res.json(listings);
@@ -296,6 +297,7 @@ router.patch("/listings/:id", async (req, res): Promise<void> => {
   if (b.tags !== undefined) updateData.tags = b.tags;
   if (b.hidden !== undefined) updateData.hidden = b.hidden;
   if (b.favorite !== undefined) updateData.favorite = b.favorite;
+  if (b.visitNext !== undefined) updateData.visitNext = b.visitNext;
 
   const [listing] = await db
     .update(listingsTable)

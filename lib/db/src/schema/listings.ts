@@ -41,6 +41,7 @@ export const listingsTable = pgTable("listings", {
   tags: text("tags"),
   hidden: boolean("hidden").notNull().default(false),
   favorite: boolean("favorite").notNull().default(false),
+  visitNext: boolean("visit_next").notNull().default(false),
   lastCheckedAt: timestamp("last_checked_at", { withTimezone: true }),
   firstSavedAt: timestamp("first_saved_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

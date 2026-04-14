@@ -34,6 +34,7 @@ import {
   ChevronDown,
   ChevronsUpDown,
   MoreVertical,
+  Flag,
 } from "lucide-react";
 import { format, differenceInMinutes, differenceInHours, differenceInDays } from "date-fns";
 
@@ -794,6 +795,15 @@ export default function Home() {
                         {/* Notes + actions */}
                         <TableCell>
                           <div className="flex items-center gap-0.5">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className={`h-7 w-7 transition-colors ${listing.visitNext ? "text-primary" : "text-muted-foreground/40 hover:text-primary"}`}
+                              title={listing.visitNext ? "Remove visit flag" : "Flag to visit next"}
+                              onClick={() => updateListing.mutate({ id: listing.id, data: { visitNext: !listing.visitNext } })}
+                            >
+                              <Flag className={`w-3.5 h-3.5 ${listing.visitNext ? "fill-primary/30" : ""}`} />
+                            </Button>
                             <NotesPopover {...notesProps(listing)} />
                           </div>
                         </TableCell>
@@ -1035,6 +1045,16 @@ export default function Home() {
                       <div className="px-4 py-2.5 border-t border-border/50 flex items-center justify-between bg-muted/10">
                         <span className="text-[11px] text-muted-foreground">{timeAgo(listing.updatedAt)}</span>
                         <div className="flex items-center gap-0.5">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className={`h-7 w-7 transition-colors ${listing.visitNext ? "text-primary" : "text-muted-foreground/40 hover:text-primary opacity-0 group-hover:opacity-100 data-[flagged=true]:opacity-100"}`}
+                            data-flagged={listing.visitNext}
+                            title={listing.visitNext ? "Remove visit flag" : "Flag to visit next"}
+                            onClick={() => updateListing.mutate({ id: listing.id, data: { visitNext: !listing.visitNext } })}
+                          >
+                            <Flag className={`w-3.5 h-3.5 ${listing.visitNext ? "fill-primary/30" : ""}`} />
+                          </Button>
                           <NotesPopover {...notesProps(listing)} />
                           <Button
                             variant="ghost"

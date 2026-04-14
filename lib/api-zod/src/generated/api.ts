@@ -67,6 +67,7 @@ export const GetListingsResponseItem = zod.object({
   tags: zod.string().nullish(),
   hidden: zod.boolean(),
   favorite: zod.boolean(),
+  visitNext: zod.boolean(),
   lastCheckedAt: zod.string().nullish(),
   firstSavedAt: zod.string(),
   updatedAt: zod.string(),
@@ -161,6 +162,7 @@ export const UpdateListingBody = zod.object({
   tags: zod.string().nullish(),
   hidden: zod.boolean().nullish(),
   favorite: zod.boolean().nullish(),
+  visitNext: zod.boolean().nullish(),
 });
 
 export const UpdateListingResponse = zod.object({
@@ -202,6 +204,7 @@ export const UpdateListingResponse = zod.object({
   tags: zod.string().nullish(),
   hidden: zod.boolean(),
   favorite: zod.boolean(),
+  visitNext: zod.boolean(),
   lastCheckedAt: zod.string().nullish(),
   firstSavedAt: zod.string(),
   updatedAt: zod.string(),
