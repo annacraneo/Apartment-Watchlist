@@ -245,6 +245,25 @@ function CardImage({ src }: { src: string | null | undefined }) {
   return <img src={src} alt="" className="w-full h-full object-cover" onError={() => setError(true)} />;
 }
 
+function TableThumb({ src }: { src: string | null | undefined }) {
+  const [error, setError] = useState(false);
+  if (!src || error) {
+    return (
+      <div className="w-16 h-11 rounded-md bg-muted/40 flex items-center justify-center flex-shrink-0">
+        <Building2 className="w-4 h-4 text-muted-foreground/25" />
+      </div>
+    );
+  }
+  return (
+    <img
+      src={src}
+      alt=""
+      className="w-16 h-11 object-cover rounded-md flex-shrink-0"
+      onError={() => setError(true)}
+    />
+  );
+}
+
 function InterestBadge({ level }: { level: string | null | undefined }) {
   if (!level || level === "none") return null;
   const cls =
@@ -649,6 +668,7 @@ export default function Home() {
                       </Tooltip>
                     </TooltipProvider>
                   </TableHead>
+                  <TableHead className="w-20"></TableHead>
                   <TableHead className="min-w-[220px]">Address</TableHead>
                   <TableHead className="w-28">
                     <SortableHeader label="Price" field="currentPrice" sortBy={sortBy} sortDir={sortDir} onSort={onSort} />
@@ -680,14 +700,14 @@ export default function Home() {
                 {isLoadingListings ? (
                   Array.from({ length: pageSize }).map((_, i) => (
                     <TableRow key={i}>
-                      {Array.from({ length: 17 }).map((_, j) => (
+                      {Array.from({ length: 18 }).map((_, j) => (
                         <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>
                       ))}
                     </TableRow>
                   ))
                 ) : listings.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={17}>
+                    <TableCell colSpan={18}>
                       <EmptyState />
                     </TableCell>
                   </TableRow>
@@ -734,6 +754,11 @@ export default function Home() {
                               </TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
+                        </TableCell>
+
+                        {/* Thumbnail */}
+                        <TableCell className="px-1.5 py-1">
+                          <TableThumb src={listing.mainImageUrl} />
                         </TableCell>
 
                         {/* Address */}
@@ -952,6 +977,11 @@ export default function Home() {
                       }`}
                       data-testid={`card-listing-${listing.id}`}
                     >
+                      {/* ── Card image ── */}
+                      <div className="relative w-full h-44 overflow-hidden bg-muted/20 flex-shrink-0">
+                        <CardImage src={listing.mainImageUrl} />
+                      </div>
+
                       {/* ── Card content ── */}
                       <div className="flex flex-col flex-1 p-4 gap-3">
 
