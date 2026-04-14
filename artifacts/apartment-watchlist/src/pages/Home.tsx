@@ -281,6 +281,18 @@ function SortableHeader({
   );
 }
 
+const PAGE_SIZE_OPTIONS = [10, 15, 20, 25, 50] as const;
+
+function getPageNumbers(current: number, total: number): (number | "…")[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const pages: (number | "…")[] = [1];
+  if (current > 3) pages.push("…");
+  for (let p = Math.max(2, current - 1); p <= Math.min(total - 1, current + 1); p++) pages.push(p);
+  if (current < total - 2) pages.push("…");
+  pages.push(total);
+  return pages;
+}
+
 export default function Home() {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -291,6 +303,13 @@ export default function Home() {
   const [parkingInfo, setParkingInfo] = useState<string>("all");
   const [sortBy, setSortBy] = useState("updatedAt");
   const [sortDir, setSortDir] = useState("desc");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<number>(() => {
+    const saved = localStorage.getItem("watchlist-page-size");
+    return saved && PAGE_SIZE_OPTIONS.includes(Number(saved) as typeof PAGE_SIZE_OPTIONS[number])
+      ? Number(saved)
+      : 15;
+  });
 
   const onSort = (field: string, dir: string) => { setSortBy(field); setSortDir(dir); };
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -303,6 +322,8 @@ export default function Home() {
     const timer = setTimeout(() => setDebouncedSearch(search), 300);
     return () => clearTimeout(timer);
   }, [search]);
+
+  React.useEffect(() => { setPage(1); }, [debouncedSearch, status, interestLevel, borough, parkingInfo, condoType, pageSize]);
 
   const queryParams: GetListingsParams = {
     search: debouncedSearch || undefined,
@@ -344,6 +365,15 @@ export default function Home() {
       return true;
     });
   }, [allListings, borough, parkingInfo, condoType]);
+
+  const totalCount = allListings?.length ?? 0;
+  const filteredCount = listings.length;
+  const pageCount = Math.max(1, Math.ceil(filteredCount / pageSize));
+  const safePage = Math.min(page, pageCount);
+  const firstItem = filteredCount === 0 ? 0 : (safePage - 1) * pageSize + 1;
+  const lastItem = Math.min(safePage * pageSize, filteredCount);
+  const paginatedListings = listings.slice((safePage - 1) * pageSize, safePage * pageSize);
+  const isFiltered = filteredCount !== totalCount;
 
   const checkAll = useCheckAllListings({
     mutation: {
@@ -428,15 +458,26 @@ export default function Home() {
 
         {/* Toolbar */}
         <div className="px-4 py-3 border-b flex flex-col md:flex-row gap-3 items-start md:items-center justify-between">
-          <div className="flex items-center gap-2 flex-1 w-full md:max-w-sm relative">
-            <Search className="w-4 h-4 absolute left-3 text-muted-foreground pointer-events-none" />
-            <Input
-              placeholder="Search address, borough, notes…"
-              className="pl-9 h-9 bg-background text-sm"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              data-testid="input-search-listings"
-            />
+          <div className="flex items-center gap-2.5 flex-1 w-full md:max-w-lg">
+            <div className="relative flex-1 min-w-0">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+              <Input
+                placeholder="Search address, borough, notes…"
+                className="pl-9 h-9 bg-background text-sm"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                data-testid="input-search-listings"
+              />
+            </div>
+            {!isLoadingListings && (
+              <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0 tabular-nums">
+                {isFiltered
+                  ? <><span className="font-semibold text-foreground">{filteredCount}</span> of {totalCount}</>
+                  : <><span className="font-semibold text-foreground">{totalCount}</span></>
+                }
+                {" "}listing{totalCount !== 1 ? "s" : ""}
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             {selectedIds.size > 0 && (
@@ -544,6 +585,27 @@ export default function Home() {
               <SelectItem value="firstSavedAt-desc">Recently Added</SelectItem>
             </SelectContent>
           </Select>
+
+          <div className="ml-auto flex items-center gap-1.5">
+            <span className="text-xs text-muted-foreground whitespace-nowrap">Rows:</span>
+            <Select
+              value={String(pageSize)}
+              onValueChange={(v) => {
+                const n = Number(v);
+                setPageSize(n);
+                localStorage.setItem("watchlist-page-size", String(n));
+              }}
+            >
+              <SelectTrigger className="w-[70px] h-7 text-xs" data-testid="filter-page-size">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PAGE_SIZE_OPTIONS.map((n) => (
+                  <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         {/* ── TABLE VIEW ── */}
@@ -554,9 +616,13 @@ export default function Home() {
                 <TableRow className="hover:bg-transparent">
                   <TableHead className="w-8 px-2">
                     <Checkbox
-                      checked={listings.length > 0 && selectedIds.size === listings.length}
-                      onCheckedChange={(checked) => setSelectedIds(checked ? new Set(listings.map((l) => l.id)) : new Set())}
-                      aria-label="Select all"
+                      checked={paginatedListings.length > 0 && paginatedListings.every((l) => selectedIds.has(l.id))}
+                      onCheckedChange={(checked) => setSelectedIds((prev) => {
+                        const next = new Set(prev);
+                        paginatedListings.forEach((l) => checked ? next.add(l.id) : next.delete(l.id));
+                        return next;
+                      })}
+                      aria-label="Select all on page"
                     />
                   </TableHead>
                   <TableHead className="w-8"></TableHead>
@@ -589,7 +655,7 @@ export default function Home() {
               </TableHeader>
               <TableBody>
                 {isLoadingListings ? (
-                  Array.from({ length: 5 }).map((_, i) => (
+                  Array.from({ length: pageSize }).map((_, i) => (
                     <TableRow key={i}>
                       {Array.from({ length: 17 }).map((_, j) => (
                         <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>
@@ -603,7 +669,7 @@ export default function Home() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  listings.map((listing) => {
+                  paginatedListings.map((listing) => {
                     const pc = priceHistoryMap.get(listing.id);
                     const pcd = pc ? parsePriceChange(pc) : null;
                     return (
@@ -811,7 +877,7 @@ export default function Home() {
                 })}
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-                {listings.map((listing) => {
+                {paginatedListings.map((listing) => {
                   const pc = priceHistoryMap.get(listing.id);
                   const pcd = pc ? parsePriceChange(pc) : null;
                   const isSelected = selectedIds.has(listing.id);
@@ -982,6 +1048,62 @@ export default function Home() {
                 })}
               </div>
               </>
+            )}
+          </div>
+        )}
+        {/* ── PAGINATION FOOTER ── */}
+        {!isLoadingListings && filteredCount > 0 && (
+          <div className="px-4 py-3 border-t flex items-center justify-between gap-4 flex-wrap bg-muted/10">
+            <span className="text-xs text-muted-foreground tabular-nums shrink-0">
+              Showing{" "}
+              <span className="font-medium text-foreground">{firstItem}–{lastItem}</span>
+              {" "}of{" "}
+              <span className="font-medium text-foreground">{filteredCount}</span>
+              {isFiltered && <span className="text-muted-foreground/60"> (filtered from {totalCount})</span>}
+            </span>
+
+            {pageCount > 1 && (
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 px-2.5 text-xs"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={safePage === 1}
+                  aria-label="Previous page"
+                >
+                  ← Prev
+                </Button>
+
+                {getPageNumbers(safePage, pageCount).map((p, i) =>
+                  p === "…" ? (
+                    <span key={`ellipsis-${i}`} className="px-1.5 text-xs text-muted-foreground select-none">…</span>
+                  ) : (
+                    <Button
+                      key={p}
+                      variant={p === safePage ? "default" : "outline"}
+                      size="sm"
+                      className="h-7 w-7 text-xs p-0"
+                      onClick={() => setPage(p)}
+                      aria-label={`Page ${p}`}
+                      aria-current={p === safePage ? "page" : undefined}
+                    >
+                      {p}
+                    </Button>
+                  )
+                )}
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 px-2.5 text-xs"
+                  onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
+                  disabled={safePage === pageCount}
+                  aria-label="Next page"
+                >
+                  Next →
+                </Button>
+              </div>
             )}
           </div>
         )}
