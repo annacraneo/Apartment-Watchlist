@@ -106,7 +106,18 @@ export function parseCentris(html: string, url: string): NormalizedListing {
       carac["property type"] ||
       carac["type de propriété"] ||
       null;
-    if (condoType) result.propertyType = condoType;
+    if (condoType) {
+      // Normalise French values so the Condo Type filter works for both languages
+      const typeNorm: Record<string, string> = {
+        "divided": "Divided",
+        "divise": "Divided",
+        "divisé": "Divided",
+        "undivided": "Undivided",
+        "indivise": "Undivided",
+        "indivisé": "Undivided",
+      };
+      result.propertyType = typeNorm[condoType.toLowerCase().trim()] ?? condoType;
+    }
 
     // ── 6. Area / sqft ───────────────────────────────────────────────────────
     const areaVal =
@@ -115,6 +126,10 @@ export function parseCentris(html: string, url: string): NormalizedListing {
       carac["living area"] ||
       carac["superficie habitable"] ||
       carac["floor area"] ||
+      carac["gross area"] ||
+      carac["superficie brute"] ||
+      carac["total area"] ||
+      carac["superficie totale"] ||
       null;
     if (areaVal) {
       const areaMatch = areaVal.match(/([\d,\s]+)/);
@@ -142,6 +157,7 @@ export function parseCentris(html: string, url: string): NormalizedListing {
       carac["parking (total)"] ||
       carac["parking"] ||
       carac["stationnement (total)"] ||
+      carac["stationnement total"] ||
       carac["stationnement"] ||
       carac["garage"] ||
       null;
@@ -152,6 +168,7 @@ export function parseCentris(html: string, url: string): NormalizedListing {
       carac["floor"] ||
       carac["étage"] ||
       carac["level"] ||
+      carac["niveau"] ||
       null;
     if (floorVal) result.floor = floorVal;
 
@@ -196,7 +213,11 @@ export function parseCentris(html: string, url: string): NormalizedListing {
     }
 
     // ── 11. Days on market ───────────────────────────────────────────────────
-    const moveIn = carac["move-in date"] || carac["date de disponibilité"] || null;
+    const moveIn =
+      carac["move-in date"] ||
+      carac["date de disponibilité"] ||
+      carac["date d'emménagement"] ||
+      null;
     // "20 days after acceptance of promise to purchase"
     if (moveIn) {
       const domMatch = moveIn.match(/(\d+)\s*(?:days?|jours?)/i);
@@ -234,8 +255,8 @@ export function parseCentris(html: string, url: string): NormalizedListing {
       return found;
     };
 
-    const monthlyFees = parseTotalFromMonthlyTable(/fees/i);
-    const monthlyTaxes = parseTotalFromMonthlyTable(/taxes/i);
+    const monthlyFees = parseTotalFromMonthlyTable(/fees|frais/i);
+    const monthlyTaxes = parseTotalFromMonthlyTable(/taxes|impôts|taxe/i);
 
     if (monthlyFees !== null) {
       result.condoFees = `$${monthlyFees.toLocaleString()}/mo`;
