@@ -909,18 +909,18 @@ export default function Home() {
                         </TableCell>
 
                         {/* Condo Fees/mo */}
-                        <TableCell className={`tabular-nums ${parseMonthly(listing.condoFees) > 450 ? "text-amber-500" : "text-muted-foreground"}`}>
+                        <TableCell className={`tabular-nums ${!!listing.condoFees && parseMonthly(listing.condoFees) > 450 ? "text-amber-500" : "text-muted-foreground"}`}>
                           <span className="flex items-center gap-1">
                             {fmt(listing.condoFees)}
-                            {parseMonthly(listing.condoFees) > 450 && <AlertCircle className="w-3 h-3 shrink-0" />}
+                            {!!listing.condoFees && parseMonthly(listing.condoFees) > 450 && <AlertCircle className="w-3 h-3 shrink-0" />}
                           </span>
                         </TableCell>
 
                         {/* Tax/mo */}
-                        <TableCell className={`tabular-nums ${parseMonthly(listing.taxes) > 450 ? "text-amber-500" : "text-muted-foreground"}`}>
+                        <TableCell className={`tabular-nums ${!!listing.taxes && parseMonthly(listing.taxes) > 450 ? "text-amber-500" : "text-muted-foreground"}`}>
                           <span className="flex items-center gap-1">
                             {toMonthly(listing.taxes)}
-                            {parseMonthly(listing.taxes) > 450 && <AlertCircle className="w-3 h-3 shrink-0" />}
+                            {!!listing.taxes && parseMonthly(listing.taxes) > 450 && <AlertCircle className="w-3 h-3 shrink-0" />}
                           </span>
                         </TableCell>
 
@@ -1176,16 +1176,16 @@ export default function Home() {
                         <div className="grid grid-cols-2 gap-1.5">
                           <div className="rounded bg-muted/40 px-2 py-1">
                             <p className="text-[9px] text-muted-foreground uppercase tracking-wide">Condo fees</p>
-                            <p className={`text-xs font-semibold tabular-nums flex items-center gap-1 ${parseMonthly(listing.condoFees) > 450 ? "text-amber-500" : ""}`}>
+                            <p className={`text-xs font-semibold tabular-nums flex items-center gap-1 ${!!listing.condoFees && parseMonthly(listing.condoFees) > 450 ? "text-amber-500" : ""}`}>
                               {fmt(listing.condoFees)}
-                              {parseMonthly(listing.condoFees) > 450 && <AlertCircle className="w-3 h-3 shrink-0" />}
+                              {!!listing.condoFees && parseMonthly(listing.condoFees) > 450 && <AlertCircle className="w-3 h-3 shrink-0" />}
                             </p>
                           </div>
                           <div className="rounded bg-muted/40 px-2 py-1">
                             <p className="text-[9px] text-muted-foreground uppercase tracking-wide">Tax</p>
-                            <p className={`text-xs font-semibold tabular-nums flex items-center gap-1 ${parseMonthly(listing.taxes) > 450 ? "text-amber-500" : ""}`}>
+                            <p className={`text-xs font-semibold tabular-nums flex items-center gap-1 ${!!listing.taxes && parseMonthly(listing.taxes) > 450 ? "text-amber-500" : ""}`}>
                               {toMonthly(listing.taxes)}
-                              {parseMonthly(listing.taxes) > 450 && <AlertCircle className="w-3 h-3 shrink-0" />}
+                              {!!listing.taxes && parseMonthly(listing.taxes) > 450 && <AlertCircle className="w-3 h-3 shrink-0" />}
                             </p>
                           </div>
                         </div>
