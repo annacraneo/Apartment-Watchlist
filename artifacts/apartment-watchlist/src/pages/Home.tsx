@@ -900,16 +900,16 @@ export default function Home() {
                           {listing.nearestMetro ? (
                             <div className="flex flex-col leading-tight">
                               <span className="font-medium truncate max-w-[110px]">{listing.nearestMetro}</span>
-                              <span className={`text-[10px] flex items-center gap-0.5 ${Number(listing.walkingMinutes) > 15 ? "text-amber-400" : "text-muted-foreground"}`}>
+                              <span className={`text-[10px] flex items-center gap-0.5 ${Number(listing.walkingMinutes) > 15 ? "text-amber-500" : "text-muted-foreground"}`}>
                                 {listing.walkingMinutes} min walk
-                                {Number(listing.walkingMinutes) > 15 && <AlertCircle className="w-3 h-3" />}
+                                {Number(listing.walkingMinutes) > 15 && <AlertCircle className="w-3.5 h-3.5" />}
                               </span>
                             </div>
                           ) : "—"}
                         </TableCell>
 
                         {/* Condo Fees/mo */}
-                        <TableCell className={`tabular-nums ${parseMonthly(listing.condoFees) > 450 ? "text-amber-400" : "text-muted-foreground"}`}>
+                        <TableCell className={`tabular-nums ${parseMonthly(listing.condoFees) > 450 ? "text-amber-500" : "text-muted-foreground"}`}>
                           <span className="flex items-center gap-1">
                             {fmt(listing.condoFees)}
                             {parseMonthly(listing.condoFees) > 450 && <AlertCircle className="w-3 h-3 shrink-0" />}
@@ -917,7 +917,7 @@ export default function Home() {
                         </TableCell>
 
                         {/* Tax/mo */}
-                        <TableCell className={`tabular-nums ${parseMonthly(listing.taxes) > 450 ? "text-amber-400" : "text-muted-foreground"}`}>
+                        <TableCell className={`tabular-nums ${parseMonthly(listing.taxes) > 450 ? "text-amber-500" : "text-muted-foreground"}`}>
                           <span className="flex items-center gap-1">
                             {toMonthly(listing.taxes)}
                             {parseMonthly(listing.taxes) > 450 && <AlertCircle className="w-3 h-3 shrink-0" />}
@@ -1163,9 +1163,9 @@ export default function Home() {
                           <div className="flex items-center gap-2 text-xs text-muted-foreground">
                             <Train className="w-3.5 h-3.5 flex-shrink-0 text-primary/70" />
                             <span className="font-medium text-foreground/80">{listing.nearestMetro}</span>
-                            <span className={`flex items-center gap-0.5 ${Number(listing.walkingMinutes) > 15 ? "text-amber-400" : ""}`}>
+                            <span className={`flex items-center gap-0.5 ${Number(listing.walkingMinutes) > 15 ? "text-amber-500" : ""}`}>
                               · {listing.walkingMinutes} min walk
-                              {Number(listing.walkingMinutes) > 15 && <AlertCircle className="w-3 h-3" />}
+                              {Number(listing.walkingMinutes) > 15 && <AlertCircle className="w-3.5 h-3.5" />}
                             </span>
                           </div>
                         )}
@@ -1176,14 +1176,14 @@ export default function Home() {
                         <div className="grid grid-cols-2 gap-1.5">
                           <div className="rounded bg-muted/40 px-2 py-1">
                             <p className="text-[9px] text-muted-foreground uppercase tracking-wide">Condo fees</p>
-                            <p className={`text-xs font-semibold tabular-nums flex items-center gap-1 ${parseMonthly(listing.condoFees) > 450 ? "text-amber-400" : ""}`}>
+                            <p className={`text-xs font-semibold tabular-nums flex items-center gap-1 ${parseMonthly(listing.condoFees) > 450 ? "text-amber-500" : ""}`}>
                               {fmt(listing.condoFees)}
                               {parseMonthly(listing.condoFees) > 450 && <AlertCircle className="w-3 h-3 shrink-0" />}
                             </p>
                           </div>
                           <div className="rounded bg-muted/40 px-2 py-1">
                             <p className="text-[9px] text-muted-foreground uppercase tracking-wide">Tax</p>
-                            <p className={`text-xs font-semibold tabular-nums flex items-center gap-1 ${parseMonthly(listing.taxes) > 450 ? "text-amber-400" : ""}`}>
+                            <p className={`text-xs font-semibold tabular-nums flex items-center gap-1 ${parseMonthly(listing.taxes) > 450 ? "text-amber-500" : ""}`}>
                               {toMonthly(listing.taxes)}
                               {parseMonthly(listing.taxes) > 450 && <AlertCircle className="w-3 h-3 shrink-0" />}
                             </p>

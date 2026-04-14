@@ -97,7 +97,7 @@ export function Header() {
                     return (
                     <DropdownMenuItem key={n.id} className={`flex flex-col items-start p-3 gap-1 cursor-pointer ${isDupe ? "border-l-2 border-amber-500/60" : ""}`} onClick={() => markRead.mutate({ id: n.id })}>
                       <div className="flex items-center justify-between w-full gap-2">
-                        <span className={`font-medium text-sm truncate ${isDupe ? "text-amber-400" : ""}`}>
+                        <span className={`font-medium text-sm truncate ${isDupe ? "text-amber-500" : ""}`}>
                           {isDupe ? "⚠ Duplicate blocked" : (n.listingTitle || "Unknown Listing")}
                         </span>
                         <span className="text-[10px] text-muted-foreground whitespace-nowrap shrink-0">
