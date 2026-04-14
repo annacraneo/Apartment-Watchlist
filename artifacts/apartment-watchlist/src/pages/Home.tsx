@@ -98,10 +98,13 @@ function streetViewUrl(address: string, lat?: string | null, lng?: string | null
   return `https://www.google.com/maps/search/${encodeURIComponent(stripBorough(address))}`;
 }
 
-function toMonthly(yearly: string | null | undefined): string {
-  if (!yearly) return "—";
-  const num = parseFloat(yearly.replace(/[^0-9.]/g, ""));
+function toMonthly(value: string | null | undefined): string {
+  if (!value) return "—";
+  const num = parseFloat(value.replace(/[^0-9.]/g, ""));
   if (isNaN(num) || num === 0) return "—";
+  // Parser already stores monthly values with "/mo" suffix — display as-is
+  if (/\/mo/i.test(value)) return `$${Math.round(num).toLocaleString("en-CA")}/mo`;
+  // Legacy or alternate format: treat as yearly and convert
   return `$${Math.round(num / 12).toLocaleString("en-CA")}/mo`;
 }
 
