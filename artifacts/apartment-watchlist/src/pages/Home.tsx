@@ -778,7 +778,9 @@ export default function Home() {
                           {listing.nearestMetro ? (
                             <div className="flex flex-col leading-tight">
                               <span className="font-medium truncate max-w-[110px]">{listing.nearestMetro}</span>
-                              <span className="text-[10px] text-muted-foreground">{listing.walkingMinutes} min walk</span>
+                              <span className={`text-[10px] ${Number(listing.walkingMinutes) > 15 ? "text-amber-400" : "text-muted-foreground"}`}>
+                                {listing.walkingMinutes} min walk{Number(listing.walkingMinutes) > 15 && " !"}
+                              </span>
                             </div>
                           ) : "—"}
                         </TableCell>
@@ -1008,7 +1010,9 @@ export default function Home() {
                           <div className="flex items-center gap-2 text-xs text-muted-foreground">
                             <Train className="w-3.5 h-3.5 flex-shrink-0 text-primary/70" />
                             <span className="font-medium text-foreground/80">{listing.nearestMetro}</span>
-                            <span>· {listing.walkingMinutes} min walk</span>
+                            <span className={Number(listing.walkingMinutes) > 15 ? "text-amber-400" : ""}>
+                              · {listing.walkingMinutes} min walk{Number(listing.walkingMinutes) > 15 && " !"}
+                            </span>
                           </div>
                         )}
 
