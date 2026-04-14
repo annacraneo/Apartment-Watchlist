@@ -177,6 +177,32 @@ export async function scrapeNative(url: string): Promise<ScrapeResult> {
       };
     }
 
+    // Detect silent redirects: Centris returns HTTP 200 to a *different* listing
+    // when the original is sold/removed. Compare listing IDs embedded in the URLs.
+    const originalId = url.match(/\/(\d{6,})/)?.[1];
+    const finalId = response.url.match(/\/(\d{6,})/)?.[1];
+    if (originalId && finalId && originalId !== finalId) {
+      logger.info(
+        { url, finalUrl: response.url, originalId, finalId },
+        "Listing redirected to a different property — marking as unavailable",
+      );
+      return {
+        success: false,
+        data: null,
+        errorMessage: `Listing no longer available (redirected to ${finalId})`,
+      };
+    }
+
+    // Centris search/results pages have no listing ID in the URL — also unavailable
+    if (originalId && !finalId) {
+      logger.info({ url, finalUrl: response.url }, "Listing URL resolved to non-listing page — marking as unavailable");
+      return {
+        success: false,
+        data: null,
+        errorMessage: "Listing no longer available (URL resolved to non-listing page)",
+      };
+    }
+
     const html = await response.text();
     if (!html || html.length < 100) {
       return {
