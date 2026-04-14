@@ -455,6 +455,11 @@ export default function Home() {
   });
 
   const fmt = (val: string | null | undefined) => val || "—";
+  const fmtPrice = (val: string | null | undefined) => {
+    if (!val) return "—";
+    const n = Number(val.replace(/[^0-9.]/g, ""));
+    return isNaN(n) ? val : `$${n.toLocaleString("en-CA")}`;
+  };
 
   const notesProps = (listing: (typeof listings)[0]) => ({
     listingId: listing.id,
