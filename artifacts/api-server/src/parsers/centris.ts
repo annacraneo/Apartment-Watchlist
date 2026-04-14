@@ -164,7 +164,7 @@ export function parseCentris(html: string, url: string): NormalizedListing {
     // but only in specific sections, not the whole body (to avoid false matches).
     // The summary block has text like: "6 rooms\n2 bedrooms\n1 bathroom"
     const summaryBlock = $(".property-summary-item, .templateSummaryItem, [class*='house-info'], [class*='d-none d-sm-block']").text();
-    const bedsInSummary = summaryBlock.match(/(\d+)\s*(?:bedrooms?|chambres?\s*à\s*coucher)/i);
+    const bedsInSummary = summaryBlock.match(/(\d+)\s*(?:bedrooms?|chambres?(?:\s*à\s*coucher)?)/i);
     const bathsInSummary = summaryBlock.match(/(\d+(?:\.\d+)?)\s*(?:bathrooms?|salles?\s*de\s*bain)/i);
     if (bedsInSummary) result.bedrooms = bedsInSummary[1];
     if (bathsInSummary) result.bathrooms = bathsInSummary[1];
@@ -176,7 +176,7 @@ export function parseCentris(html: string, url: string): NormalizedListing {
       const searchRegion = caracIdx > 0 ? html.slice(Math.max(0, caracIdx - 3000), caracIdx) : html;
       const plainText = searchRegion.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
       if (!result.bedrooms) {
-        const m = plainText.match(/(\d+)\s*(?:bedrooms?|chambres?\s*à\s*coucher)/i);
+        const m = plainText.match(/(\d+)\s*(?:bedrooms?|chambres?(?:\s*à\s*coucher)?)/i);
         if (m) result.bedrooms = m[1];
       }
       if (!result.bathrooms) {
