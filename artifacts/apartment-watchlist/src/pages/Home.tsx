@@ -332,6 +332,7 @@ export default function Home() {
   const [borough, setBorough] = useState<string>("all");
   const [condoType, setCondoType] = useState<string>("all");
   const [parkingInfo, setParkingInfo] = useState<string>("all");
+  const [metro, setMetro] = useState<string>("all");
   const [sortBy, setSortBy] = useState("updatedAt");
   const [sortDir, setSortDir] = useState("desc");
   const [page, setPage] = useState(1);
@@ -354,7 +355,7 @@ export default function Home() {
     return () => clearTimeout(timer);
   }, [search]);
 
-  React.useEffect(() => { setPage(1); }, [debouncedSearch, status, interestLevel, borough, parkingInfo, condoType, pageSize]);
+  React.useEffect(() => { setPage(1); }, [debouncedSearch, status, interestLevel, borough, parkingInfo, condoType, metro, pageSize]);
 
   const queryParams: GetListingsParams = {
     search: debouncedSearch || undefined,
@@ -393,9 +394,10 @@ export default function Home() {
       if (borough !== "all" && l.neighborhood !== borough) return false;
       if (parkingInfo !== "all" && l.parkingInfo !== parkingInfo) return false;
       if (condoType !== "all" && l.propertyType !== condoType) return false;
+      if (metro !== "all" && l.nearestMetro !== metro) return false;
       return true;
     });
-  }, [allListings, borough, parkingInfo, condoType]);
+  }, [allListings, borough, parkingInfo, condoType, metro]);
 
   const totalCount = allListings?.length ?? 0;
   const filteredCount = listings.length;
@@ -475,13 +477,14 @@ export default function Home() {
 
   const boroughOptions = [...new Set((allListings ?? []).map((l) => l.neighborhood).filter(Boolean))];
   const parkingOptions = [...new Set((allListings ?? []).map((l) => l.parkingInfo).filter(Boolean))];
+  const metroOptions = [...new Set((allListings ?? []).map((l) => l.nearestMetro).filter(Boolean))].sort() as string[];
 
   const EmptyState = () => (
     <div className="flex flex-col items-center justify-center py-20 text-muted-foreground gap-3">
       <MapPin className="w-10 h-10 opacity-30" />
       <p className="text-sm font-medium">No listings found</p>
-      {(debouncedSearch || status !== "all" || borough !== "all" || parkingInfo !== "all" || condoType !== "all") && (
-        <Button variant="outline" size="sm" onClick={() => { setSearch(""); setStatus("all"); setInterestLevel("all"); setBorough("all"); setParkingInfo("all"); setCondoType("all"); }}>
+      {(debouncedSearch || status !== "all" || borough !== "all" || parkingInfo !== "all" || condoType !== "all" || metro !== "all") && (
+        <Button variant="outline" size="sm" onClick={() => { setSearch(""); setStatus("all"); setInterestLevel("all"); setBorough("all"); setParkingInfo("all"); setCondoType("all"); setMetro("all"); }}>
           Clear filters
         </Button>
       )}
@@ -583,6 +586,18 @@ export default function Home() {
               <SelectItem value="all">All Boroughs</SelectItem>
               {boroughOptions.map((item) => (
                 <SelectItem key={item as string} value={item as string}>{item}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={metro} onValueChange={setMetro}>
+            <SelectTrigger className="w-[190px] h-7 text-xs" data-testid="filter-metro">
+              <SelectValue placeholder="Metro Station" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Metro Stations</SelectItem>
+              {metroOptions.map((item) => (
+                <SelectItem key={item} value={item}>{item}</SelectItem>
               ))}
             </SelectContent>
           </Select>
