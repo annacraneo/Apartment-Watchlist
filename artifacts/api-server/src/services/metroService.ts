@@ -115,8 +115,8 @@ function findNearestMetroFallback(lat: number, lng: number): NearestMetroResult 
     const dist = haversineKm(lat, lng, station.lat, station.lng);
     if (dist < minDist) { minDist = dist; nearest = station; }
   }
-  // Conservative 1.6× route factor; 4.5 km/h pedestrian pace
-  const walkingMinutes = Math.round((minDist * 1.6) / 4.5 * 60);
+  // 1.4× route factor (urban grid); 5 km/h pedestrian pace (Google Maps default)
+  const walkingMinutes = Math.round((minDist * 1.4) / 5.0 * 60);
   return { name: nearest.name, walkingMinutes: Math.max(1, walkingMinutes), distanceKm: Math.round(minDist * 100) / 100 };
 }
 
@@ -145,7 +145,7 @@ async function findNearestMetroViaOSRM(lat: number, lng: number): Promise<Neares
   const destinations = candidates.map((_, i) => i + 1).join(";");
   const url =
     `https://router.project-osrm.org/table/v1/foot/${coords}` +
-    `?sources=0&destinations=${destinations}&annotations=distance`;
+    `?sources=0&destinations=${destinations}&annotations=duration,distance`;
 
   const resp = await fetch(url, {
     headers: { "User-Agent": "AptWatch/1.0 (apartment-watchlist)" },
@@ -155,22 +155,25 @@ async function findNearestMetroViaOSRM(lat: number, lng: number): Promise<Neares
 
   const data = (await resp.json()) as {
     code?: string;
+    durations?: (number | null)[][];
     distances?: (number | null)[][];
   };
-  if (data.code !== "Ok" || !data.distances?.[0]) return null;
+  if (data.code !== "Ok" || !data.durations?.[0]) return null;
 
-  // 3. Pick the station with the shortest road-network walking distance
+  // 3. Pick the station with the shortest OSRM walking duration (seconds)
   let bestIdx = 0;
-  let bestMeters = Infinity;
-  data.distances[0].forEach((dist, i) => {
-    if (dist !== null && dist < bestMeters) { bestMeters = dist; bestIdx = i; }
+  let bestSecs = Infinity;
+  data.durations[0].forEach((secs, i) => {
+    if (secs !== null && secs < bestSecs) { bestSecs = secs; bestIdx = i; }
   });
 
   const best = candidates[bestIdx];
-  // The public OSRM server's foot-profile speed is inaccurate; compute time ourselves
-  // using 4.5 km/h average walking pace (conservative for urban blocks)
-  const walkingMeters = bestMeters < Infinity ? bestMeters : best.straightKm * 1000;
-  const walkingMinutes = Math.max(1, Math.round((walkingMeters / 1000 / 4.5) * 60));
+  // Use OSRM's own duration directly — it accounts for actual foot-profile
+  // speeds, turn penalties, and crossing delays, matching Google Maps estimates.
+  const walkingMinutes = bestSecs < Infinity
+    ? Math.max(1, Math.round(bestSecs / 60))
+    : Math.max(1, Math.round((best.straightKm * 1.4 / 5.0) * 60));
+  const walkingMeters = data.distances?.[0]?.[bestIdx] ?? best.straightKm * 1000;
 
   return {
     name: best.name,
