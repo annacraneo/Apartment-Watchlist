@@ -20,7 +20,6 @@ import {
   Copy,
   Check,
   StickyNote,
-  ExternalLink,
   LayoutList,
   LayoutGrid,
   Train,
@@ -627,9 +626,22 @@ export default function Home() {
                         {/* Address */}
                         <TableCell className="font-medium">
                           <div className="flex items-center gap-1">
-                            <span className="truncate max-w-[200px]" title={listing.address || listing.title || listing.listingUrl}>
-                              {truncateAtSecondComma(stripBorough(listing.address || listing.title || listing.listingUrl || ""))}
-                            </span>
+                            {listing.listingUrl ? (
+                              <a
+                                href={listing.listingUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="truncate max-w-[200px] hover:text-primary hover:underline transition-colors"
+                                title={listing.address || listing.title || listing.listingUrl}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                {truncateAtSecondComma(stripBorough(listing.address || listing.title || listing.listingUrl || ""))}
+                              </a>
+                            ) : (
+                              <span className="truncate max-w-[200px]" title={listing.address || listing.title || ""}>
+                                {truncateAtSecondComma(stripBorough(listing.address || listing.title || ""))}
+                              </span>
+                            )}
                             {(listing.address || listing.title) && (
                               <CopyText text={stripBorough(listing.address || listing.title || "")} />
                             )}
@@ -643,13 +655,6 @@ export default function Home() {
                                 onClick={(e) => e.stopPropagation()}
                               >
                                 <MapIcon className="w-3.5 h-3.5" />
-                              </a>
-                            )}
-                            {listing.listingUrl && (
-                              <a href={listing.listingUrl} target="_blank" rel="noopener noreferrer"
-                                className="inline-flex items-center justify-center w-5 h-5 rounded text-foreground/40 hover:text-primary hover:bg-muted transition-colors flex-shrink-0"
-                                onClick={(e) => e.stopPropagation()}>
-                                <ExternalLink className="w-3.5 h-3.5" />
                               </a>
                             )}
                           </div>
@@ -858,7 +863,18 @@ export default function Home() {
                         {/* Address */}
                         <div>
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            <p className="text-sm font-medium leading-snug">{streetAddress || listing.listingUrl}</p>
+                            {listing.listingUrl ? (
+                              <a
+                                href={listing.listingUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-sm font-medium leading-snug hover:text-primary hover:underline transition-colors"
+                              >
+                                {streetAddress || listing.listingUrl}
+                              </a>
+                            ) : (
+                              <p className="text-sm font-medium leading-snug">{streetAddress}</p>
+                            )}
                             {streetAddress && <CopyText text={streetAddress} />}
                             {streetAddress && (
                               <a
@@ -869,12 +885,6 @@ export default function Home() {
                                 className="inline-flex items-center justify-center w-5 h-5 rounded text-foreground/40 hover:text-primary hover:bg-muted transition-colors"
                               >
                                 <MapIcon className="w-3.5 h-3.5" />
-                              </a>
-                            )}
-                            {listing.listingUrl && (
-                              <a href={listing.listingUrl} target="_blank" rel="noopener noreferrer"
-                                className="inline-flex items-center justify-center w-5 h-5 rounded text-foreground/40 hover:text-primary hover:bg-muted transition-colors">
-                                <ExternalLink className="w-3.5 h-3.5" />
                               </a>
                             )}
                           </div>
