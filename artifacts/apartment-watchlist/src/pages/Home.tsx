@@ -35,6 +35,7 @@ import {
   ChevronsUpDown,
   MoreVertical,
   Flag,
+  AlertCircle,
 } from "lucide-react";
 import { format, differenceInMinutes, differenceInHours, differenceInDays } from "date-fns";
 
@@ -113,6 +114,13 @@ function toMonthly(value: string | null | undefined): string {
   if (/\/mo/i.test(value)) return `$${Math.round(num).toLocaleString("en-CA")}/mo`;
   // Legacy or alternate format: treat as yearly and convert
   return `$${Math.round(num / 12).toLocaleString("en-CA")}/mo`;
+}
+
+/** Extracts the numeric monthly dollar value from strings like "$243/mo". Returns Infinity for null/missing. */
+function parseMonthly(s: string | null | undefined): number {
+  if (!s) return Infinity;
+  const m = s.match(/[\d,]+/);
+  return m ? Number(m[0].replace(/,/g, "")) : Infinity;
 }
 
 function timeAgo(dateStr: string | null | undefined): string {
@@ -361,7 +369,7 @@ export default function Home() {
     search: debouncedSearch || undefined,
     status: status !== "all" ? status : undefined,
     interestLevel: interestLevel !== "all" ? interestLevel : undefined,
-    sortBy,
+    sortBy: (sortBy === "condoFees" || sortBy === "taxes") ? "updatedAt" : sortBy,
     sortDir,
   };
 
@@ -390,14 +398,25 @@ export default function Home() {
 
   const listings = useMemo(() => {
     if (!allListings) return [];
-    return allListings.filter((l) => {
+    let filtered = allListings.filter((l) => {
       if (borough !== "all" && l.neighborhood !== borough) return false;
       if (parkingInfo !== "all" && l.parkingInfo !== parkingInfo) return false;
       if (condoType !== "all" && l.propertyType !== condoType) return false;
       if (metro !== "all" && l.nearestMetro !== metro) return false;
       return true;
     });
-  }, [allListings, borough, parkingInfo, condoType, metro]);
+    // condoFees / taxes are text columns — sort client-side after filtering
+    if (sortBy === "condoFees" || sortBy === "taxes") {
+      filtered = [...filtered].sort((a, b) => {
+        if (a.visitNext && !b.visitNext) return -1;
+        if (!a.visitNext && b.visitNext) return 1;
+        const va = parseMonthly(sortBy === "condoFees" ? a.condoFees : a.taxes);
+        const vb = parseMonthly(sortBy === "condoFees" ? b.condoFees : b.taxes);
+        return sortDir === "asc" ? va - vb : vb - va;
+      });
+    }
+    return filtered;
+  }, [allListings, borough, parkingInfo, condoType, metro, sortBy, sortDir]);
 
   const totalCount = allListings?.length ?? 0;
   const filteredCount = listings.length;
@@ -634,6 +653,10 @@ export default function Home() {
               <SelectItem value="currentPrice-asc">Price ↑</SelectItem>
               <SelectItem value="currentPrice-desc">Price ↓</SelectItem>
               <SelectItem value="firstSavedAt-desc">Recently Added</SelectItem>
+              <SelectItem value="condoFees-asc">Fees ↑</SelectItem>
+              <SelectItem value="condoFees-desc">Fees ↓</SelectItem>
+              <SelectItem value="taxes-asc">Taxes ↑</SelectItem>
+              <SelectItem value="taxes-desc">Taxes ↓</SelectItem>
             </SelectContent>
           </Select>
 
@@ -877,18 +900,29 @@ export default function Home() {
                           {listing.nearestMetro ? (
                             <div className="flex flex-col leading-tight">
                               <span className="font-medium truncate max-w-[110px]">{listing.nearestMetro}</span>
-                              <span className={`text-[10px] ${Number(listing.walkingMinutes) > 15 ? "text-amber-400" : "text-muted-foreground"}`}>
-                                {listing.walkingMinutes} min walk{Number(listing.walkingMinutes) > 15 && " !"}
+                              <span className={`text-[10px] flex items-center gap-0.5 ${Number(listing.walkingMinutes) > 15 ? "text-amber-400" : "text-muted-foreground"}`}>
+                                {listing.walkingMinutes} min walk
+                                {Number(listing.walkingMinutes) > 15 && <AlertCircle className="w-3 h-3" />}
                               </span>
                             </div>
                           ) : "—"}
                         </TableCell>
 
                         {/* Condo Fees/mo */}
-                        <TableCell className="text-muted-foreground tabular-nums">{fmt(listing.condoFees)}</TableCell>
+                        <TableCell className={`tabular-nums ${parseMonthly(listing.condoFees) > 450 ? "text-amber-400" : "text-muted-foreground"}`}>
+                          <span className="flex items-center gap-1">
+                            {fmt(listing.condoFees)}
+                            {parseMonthly(listing.condoFees) > 450 && <AlertCircle className="w-3 h-3 shrink-0" />}
+                          </span>
+                        </TableCell>
 
                         {/* Tax/mo */}
-                        <TableCell className="text-muted-foreground tabular-nums">{toMonthly(listing.taxes)}</TableCell>
+                        <TableCell className={`tabular-nums ${parseMonthly(listing.taxes) > 450 ? "text-amber-400" : "text-muted-foreground"}`}>
+                          <span className="flex items-center gap-1">
+                            {toMonthly(listing.taxes)}
+                            {parseMonthly(listing.taxes) > 450 && <AlertCircle className="w-3 h-3 shrink-0" />}
+                          </span>
+                        </TableCell>
 
                         {/* Notes + actions */}
                         <TableCell>
@@ -956,8 +990,10 @@ export default function Home() {
                   { label: "Sqft", field: "squareFeet", defaultDir: "desc" },
                   { label: "Interest", field: "interestLevel", defaultDir: "desc" },
                   { label: "Metro", field: "walkingMinutes", defaultDir: "asc" },
+                  { label: "Fees", field: "condoFees", defaultDir: "asc" },
+                  { label: "Taxes", field: "taxes", defaultDir: "asc" },
                   { label: "Recent", field: "updatedAt", defaultDir: "desc" },
-                ] as const).map(({ label, field, defaultDir }) => {
+                ] as { label: string; field: string; defaultDir: "asc" | "desc" }[]).map(({ label, field, defaultDir }) => {
                   const active = sortBy === field;
                   return (
                     <button
@@ -1127,8 +1163,9 @@ export default function Home() {
                           <div className="flex items-center gap-2 text-xs text-muted-foreground">
                             <Train className="w-3.5 h-3.5 flex-shrink-0 text-primary/70" />
                             <span className="font-medium text-foreground/80">{listing.nearestMetro}</span>
-                            <span className={Number(listing.walkingMinutes) > 15 ? "text-amber-400" : ""}>
-                              · {listing.walkingMinutes} min walk{Number(listing.walkingMinutes) > 15 && " !"}
+                            <span className={`flex items-center gap-0.5 ${Number(listing.walkingMinutes) > 15 ? "text-amber-400" : ""}`}>
+                              · {listing.walkingMinutes} min walk
+                              {Number(listing.walkingMinutes) > 15 && <AlertCircle className="w-3 h-3" />}
                             </span>
                           </div>
                         )}
@@ -1139,11 +1176,17 @@ export default function Home() {
                         <div className="grid grid-cols-2 gap-1.5">
                           <div className="rounded bg-muted/40 px-2 py-1">
                             <p className="text-[9px] text-muted-foreground uppercase tracking-wide">Condo fees</p>
-                            <p className="text-xs font-semibold tabular-nums">{fmt(listing.condoFees)}</p>
+                            <p className={`text-xs font-semibold tabular-nums flex items-center gap-1 ${parseMonthly(listing.condoFees) > 450 ? "text-amber-400" : ""}`}>
+                              {fmt(listing.condoFees)}
+                              {parseMonthly(listing.condoFees) > 450 && <AlertCircle className="w-3 h-3 shrink-0" />}
+                            </p>
                           </div>
                           <div className="rounded bg-muted/40 px-2 py-1">
                             <p className="text-[9px] text-muted-foreground uppercase tracking-wide">Tax</p>
-                            <p className="text-xs font-semibold tabular-nums">{toMonthly(listing.taxes)}</p>
+                            <p className={`text-xs font-semibold tabular-nums flex items-center gap-1 ${parseMonthly(listing.taxes) > 450 ? "text-amber-400" : ""}`}>
+                              {toMonthly(listing.taxes)}
+                              {parseMonthly(listing.taxes) > 450 && <AlertCircle className="w-3 h-3 shrink-0" />}
+                            </p>
                           </div>
                         </div>
 
