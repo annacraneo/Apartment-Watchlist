@@ -249,7 +249,7 @@ function TableThumb({ src }: { src: string | null | undefined }) {
   const [error, setError] = useState(false);
   if (!src || error) {
     return (
-      <div className="w-16 h-11 rounded-md bg-muted/40 flex items-center justify-center flex-shrink-0">
+      <div className="w-14 h-14 rounded-md bg-muted/40 flex items-center justify-center flex-shrink-0">
         <Building2 className="w-4 h-4 text-muted-foreground/25" />
       </div>
     );
@@ -258,7 +258,7 @@ function TableThumb({ src }: { src: string | null | undefined }) {
     <img
       src={src}
       alt=""
-      className="w-16 h-11 object-cover rounded-md flex-shrink-0"
+      className="w-14 h-14 object-cover rounded-md flex-shrink-0"
       onError={() => setError(true)}
     />
   );
