@@ -819,7 +819,7 @@ export default function Home() {
 
                         {/* Price */}
                         <TableCell>
-                          <span className="font-semibold tabular-nums">{fmt(listing.currentPrice)}</span>
+                          <span className="font-semibold tabular-nums">{fmtPrice(listing.currentPrice)}</span>
                         </TableCell>
 
                         {/* Price History (60d) */}
