@@ -565,8 +565,12 @@ export default function Home() {
                     <SortableHeader label="Price" field="currentPrice" sortBy={sortBy} sortDir={sortDir} onSort={onSort} />
                   </TableHead>
                   <TableHead className="w-32">Price History</TableHead>
-                  <TableHead className="w-28">Specs</TableHead>
-                  <TableHead className="w-24">Sqft</TableHead>
+                  <TableHead className="w-28">
+                    <SortableHeader label="Specs" field="bedrooms" sortBy={sortBy} sortDir={sortDir} onSort={onSort} />
+                  </TableHead>
+                  <TableHead className="w-24">
+                    <SortableHeader label="Sqft" field="squareFeet" sortBy={sortBy} sortDir={sortDir} onSort={onSort} />
+                  </TableHead>
                   <TableHead className="w-28">Type</TableHead>
                   <TableHead className="w-32">Borough</TableHead>
                   <TableHead className="w-20">
@@ -781,6 +785,8 @@ export default function Home() {
                 <span className="text-xs text-muted-foreground mr-1">Sort:</span>
                 {([
                   { label: "Price", field: "currentPrice", defaultDir: "asc" },
+                  { label: "Beds", field: "bedrooms", defaultDir: "desc" },
+                  { label: "Sqft", field: "squareFeet", defaultDir: "desc" },
                   { label: "Interest", field: "interestLevel", defaultDir: "desc" },
                   { label: "Metro", field: "walkingMinutes", defaultDir: "asc" },
                   { label: "Recent", field: "updatedAt", defaultDir: "desc" },

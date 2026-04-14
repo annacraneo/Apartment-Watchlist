@@ -86,6 +86,8 @@ router.get("/listings", async (req, res): Promise<void> => {
     priceDelta: listingsTable.priceDelta,
     interestLevel: listingsTable.interestLevel,
     walkingMinutes: listingsTable.walkingMinutes,
+    bedrooms: listingsTable.bedrooms,
+    squareFeet: listingsTable.squareFeet,
   };
 
   const sortCol: Column = validSortFields[sortBy || "updatedAt"] ?? listingsTable.updatedAt;
