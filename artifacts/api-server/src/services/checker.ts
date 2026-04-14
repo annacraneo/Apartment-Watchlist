@@ -183,23 +183,23 @@ export async function checkListing(
     })
     .where(eq(listingsTable.id, listingId));
 
-  // Compute metro proximity if not already stored
-  if (!listing.nearestMetro) {
-    try {
-      const metro = await computeMetroProximity(
-        newData.latitude ?? listing.latitude,
-        newData.longitude ?? listing.longitude,
-        newData.address ?? listing.address,
-      );
-      if (metro) {
-        await db
-          .update(listingsTable)
-          .set({ nearestMetro: metro.name, walkingMinutes: metro.walkingMinutes })
-          .where(eq(listingsTable.id, listingId));
-      }
-    } catch (err) {
-      logger.warn({ listingId, err }, "Metro proximity computation failed");
+  // Always recompute metro proximity so walking times stay accurate across
+  // algorithm improvements and coordinate updates. Haversine is instant;
+  // OSRM self-disables after first timeout so there's no per-listing latency.
+  try {
+    const metro = await computeMetroProximity(
+      newData.latitude ?? listing.latitude,
+      newData.longitude ?? listing.longitude,
+      newData.address ?? listing.address,
+    );
+    if (metro) {
+      await db
+        .update(listingsTable)
+        .set({ nearestMetro: metro.name, walkingMinutes: metro.walkingMinutes })
+        .where(eq(listingsTable.id, listingId));
     }
+  } catch (err) {
+    logger.warn({ listingId, err }, "Metro proximity computation failed");
   }
 
   return {

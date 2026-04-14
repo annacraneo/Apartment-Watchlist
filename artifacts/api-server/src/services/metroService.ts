@@ -115,10 +115,15 @@ function findNearestMetroFallback(lat: number, lng: number): NearestMetroResult 
     const dist = haversineKm(lat, lng, station.lat, station.lng);
     if (dist < minDist) { minDist = dist; nearest = station; }
   }
-  // 1.4× route factor (urban grid); 5 km/h pedestrian pace (Google Maps default)
-  const walkingMinutes = Math.round((minDist * 1.4) / 5.0 * 60);
+  // 1.3× Manhattan-grid route factor (Montreal is highly orthogonal, especially east side)
+  // 5.0 km/h walking pace — matches Google Maps default pedestrian speed
+  const walkingMinutes = Math.round((minDist * 1.3) / 5.0 * 60);
   return { name: nearest.name, walkingMinutes: Math.max(1, walkingMinutes), distanceKm: Math.round(minDist * 100) / 100 };
 }
+
+// Memoize OSRM availability: once it fails we skip it for the rest of the process
+// lifetime to avoid burning timeout budget on every check.
+let osrmAvailable = true;
 
 /**
  * Uses OSRM (OpenStreetMap routing) to find the nearest station by actual
@@ -126,6 +131,7 @@ function findNearestMetroFallback(lat: number, lng: number): NearestMetroResult 
  * distance, then does one batch routing query for all 10.
  */
 async function findNearestMetroViaOSRM(lat: number, lng: number): Promise<NearestMetroResult | null> {
+  if (!osrmAvailable) return null;
   const TOP_N = 10;
 
   // 1. Pre-filter: cheapest 10 by haversine
@@ -147,10 +153,17 @@ async function findNearestMetroViaOSRM(lat: number, lng: number): Promise<Neares
     `https://router.project-osrm.org/table/v1/foot/${coords}` +
     `?sources=0&destinations=${destinations}&annotations=duration,distance`;
 
-  const resp = await fetch(url, {
-    headers: { "User-Agent": "AptWatch/1.0 (apartment-watchlist)" },
-    signal: AbortSignal.timeout(12000),
-  });
+  let resp: Response;
+  try {
+    resp = await fetch(url, {
+      headers: { "User-Agent": "AptWatch/1.0 (apartment-watchlist)" },
+      signal: AbortSignal.timeout(3000),
+    });
+  } catch {
+    osrmAvailable = false;
+    logger.warn("OSRM unreachable — disabling for this session, using haversine fallback");
+    return null;
+  }
   if (!resp.ok) return null;
 
   const data = (await resp.json()) as {
@@ -172,7 +185,7 @@ async function findNearestMetroViaOSRM(lat: number, lng: number): Promise<Neares
   // speeds, turn penalties, and crossing delays, matching Google Maps estimates.
   const walkingMinutes = bestSecs < Infinity
     ? Math.max(1, Math.round(bestSecs / 60))
-    : Math.max(1, Math.round((best.straightKm * 1.4 / 5.0) * 60));
+    : Math.max(1, Math.round((best.straightKm * 1.3 / 5.0) * 60));
   const walkingMeters = data.distances?.[0]?.[bestIdx] ?? best.straightKm * 1000;
 
   return {
