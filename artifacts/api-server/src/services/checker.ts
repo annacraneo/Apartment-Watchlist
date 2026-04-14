@@ -5,7 +5,7 @@ import {
   listingChangesTable,
   notificationsTable,
 } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, ne, and } from "drizzle-orm";
 import { logger } from "../lib/logger.js";
 import { scrapeUrl } from "./scraper.js";
 import { diffListings, changesToInserts } from "./diffEngine.js";
@@ -231,11 +231,12 @@ export async function checkAllListings(): Promise<{ checked: number; totalChange
     prefs = { notifyOnPriceDrop: true, notifyOnStatusChange: true, notifyOnUnavailable: true };
   }
 
-  // Only check non-hidden (non-archived) listings
+  // Only check non-hidden, non-unavailable listings
+  // Unavailable listings are preserved as-is and skipped from periodic re-checks
   const listings = await db
     .select()
     .from(listingsTable)
-    .where(eq(listingsTable.hidden, false));
+    .where(and(eq(listingsTable.hidden, false), ne(listingsTable.listingStatus, "unavailable")));
 
   let totalChanges = 0;
   for (const listing of listings) {

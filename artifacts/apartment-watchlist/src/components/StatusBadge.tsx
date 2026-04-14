@@ -5,9 +5,9 @@ export function StatusBadge({ status }: { status: string | null | undefined }) {
   if (!status) return null;
 
   const normalizedStatus = status.toLowerCase();
-  
-  let variant: "default" | "secondary" | "destructive" | "outline" = "default";
+
   let className = "";
+  let label = normalizedStatus.toUpperCase();
 
   switch (normalizedStatus) {
     case "active":
@@ -21,15 +21,17 @@ export function StatusBadge({ status }: { status: string | null | undefined }) {
       break;
     case "unavailable":
     case "removed":
+    case "inactive":
       className = "bg-red-500/10 text-red-500 hover:bg-red-500/20 border-red-500/20";
+      label = "INACTIVE";
       break;
     default:
       className = "bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 border-blue-500/20";
   }
 
   return (
-    <Badge variant={variant} className={className} data-testid={`status-badge-${normalizedStatus}`}>
-      {status.toUpperCase()}
+    <Badge variant="default" className={className} data-testid={`status-badge-${normalizedStatus}`}>
+      {label}
     </Badge>
   );
 }

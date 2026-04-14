@@ -129,6 +129,11 @@ function timeAgo(dateStr: string | null | undefined): string {
   return format(d, "MMM d, yy");
 }
 
+function isNewListing(dateStr: string | null | undefined): boolean {
+  if (!dateStr) return false;
+  return Date.now() - new Date(dateStr).getTime() < 24 * 60 * 60 * 1000;
+}
+
 function parsePriceChange(change: PriceChange) {
   const from = parseFloat(change.oldValue || "0");
   const to = parseFloat(change.newValue || "0");
@@ -769,6 +774,16 @@ export default function Home() {
                                 <MapIcon className="w-3.5 h-3.5" />
                               </a>
                             )}
+                            {isNewListing(listing.firstSavedAt) && (
+                              <span className="flex-shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 leading-none">
+                                NEW
+                              </span>
+                            )}
+                            {listing.listingStatus === "unavailable" && (
+                              <span className="flex-shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-500/15 text-red-400 border border-red-500/30 leading-none">
+                                INACTIVE
+                              </span>
+                            )}
                           </div>
                         </TableCell>
 
@@ -942,7 +957,14 @@ export default function Home() {
 
                         {/* Top row: checkbox + status */}
                         <div className="flex items-center justify-between">
-                          <StatusBadge status={listing.listingStatus} />
+                          <div className="flex items-center gap-2">
+                            <StatusBadge status={listing.listingStatus} />
+                            {isNewListing(listing.firstSavedAt) && (
+                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 leading-none">
+                                NEW
+                              </span>
+                            )}
+                          </div>
                           <Checkbox
                             checked={isSelected}
                             onCheckedChange={(checked) => {
