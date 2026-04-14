@@ -175,22 +175,44 @@ async function findNearestMetroViaOSRM(lat: number, lng: number): Promise<Neares
   };
 }
 
+function cleanAddressForGeocoding(address: string): string {
+  return address
+    // Remove borough/city suffixes in parentheses: "(Le Sud-Ouest)", "(Mercier/Hochelaga-Maisonneuve)"
+    .replace(/\s*\([^)]*\)/g, "")
+    // Remove apartment/unit designators: "apt. 102", "apt 4", "# 3B", "suite 200"
+    .replace(/,?\s*(?:apt\.?|appt\.?|app\.?|unit|suite|bureau|#)\s*[\w-]+/gi, "")
+    // Collapse multiple commas and trim
+    .replace(/,\s*,+/g, ",")
+    .replace(/,\s*$/, "")
+    .trim();
+}
+
 async function geocodeAddress(address: string): Promise<{ lat: number; lng: number } | null> {
-  try {
-    const query = encodeURIComponent(`${address}, Montréal, QC, Canada`);
-    const url = `https://nominatim.openstreetmap.org/search?q=${query}&format=json&limit=1&countrycodes=ca`;
-    const resp = await fetch(url, {
-      headers: { "User-Agent": "AptWatch/1.0 (apartment-watchlist)" },
-      signal: AbortSignal.timeout(8000),
-    });
-    if (!resp.ok) return null;
-    const results = (await resp.json()) as Array<{ lat: string; lon: string }>;
-    if (!results.length) return null;
-    return { lat: parseFloat(results[0].lat), lng: parseFloat(results[0].lon) };
-  } catch (err) {
-    logger.warn({ address, err }, "Nominatim geocoding failed");
-    return null;
+  // Try with cleaned address first; fall back to full address if that also fails
+  const attempts = [cleanAddressForGeocoding(address), address].filter(
+    (a, i, arr) => a && arr.indexOf(a) === i, // deduplicate if cleaning changes nothing
+  );
+
+  for (const attempt of attempts) {
+    try {
+      const query = encodeURIComponent(`${attempt}, Montréal, QC, Canada`);
+      const url = `https://nominatim.openstreetmap.org/search?q=${query}&format=json&limit=1&countrycodes=ca`;
+      const resp = await fetch(url, {
+        headers: { "User-Agent": "AptWatch/1.0 (apartment-watchlist)" },
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!resp.ok) continue;
+      const results = (await resp.json()) as Array<{ lat: string; lon: string }>;
+      if (results.length) {
+        return { lat: parseFloat(results[0].lat), lng: parseFloat(results[0].lon) };
+      }
+      // Respect Nominatim rate limit between retries
+      await new Promise((r) => setTimeout(r, 1100));
+    } catch (err) {
+      logger.warn({ address: attempt, err }, "Nominatim geocoding attempt failed");
+    }
   }
+  return null;
 }
 
 export async function computeMetroProximity(
