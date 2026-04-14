@@ -92,17 +92,22 @@ export function Header() {
                 <div className="p-4 text-center text-sm text-muted-foreground">No new notifications</div>
               ) : (
                 <div className="max-h-[300px] overflow-y-auto">
-                  {notifications.map((n) => (
-                    <DropdownMenuItem key={n.id} className="flex flex-col items-start p-3 gap-1 cursor-pointer" onClick={() => markRead.mutate({ id: n.id })}>
-                      <div className="flex items-center justify-between w-full">
-                        <span className="font-medium text-sm truncate">{n.listingTitle || "Unknown Listing"}</span>
-                        <span className="text-[10px] text-muted-foreground whitespace-nowrap ml-2">
+                  {notifications.map((n) => {
+                    const isDupe = n.type === "duplicate_detected";
+                    return (
+                    <DropdownMenuItem key={n.id} className={`flex flex-col items-start p-3 gap-1 cursor-pointer ${isDupe ? "border-l-2 border-amber-500/60" : ""}`} onClick={() => markRead.mutate({ id: n.id })}>
+                      <div className="flex items-center justify-between w-full gap-2">
+                        <span className={`font-medium text-sm truncate ${isDupe ? "text-amber-400" : ""}`}>
+                          {isDupe ? "⚠ Duplicate blocked" : (n.listingTitle || "Unknown Listing")}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground whitespace-nowrap shrink-0">
                           {formatDistanceToNow(new Date(n.createdAt), { addSuffix: true })}
                         </span>
                       </div>
                       <span className="text-xs text-muted-foreground line-clamp-2">{n.message}</span>
                     </DropdownMenuItem>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </DropdownMenuContent>

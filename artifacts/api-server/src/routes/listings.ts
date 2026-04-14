@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, desc, asc, and, sql, inArray, type Column } from "drizzle-orm";
+import { eq, desc, asc, and, ne, sql, inArray, type Column } from "drizzle-orm";
 import { db } from "@workspace/db";
 import {
   listingsTable,
@@ -146,6 +146,37 @@ router.post("/listings", async (req, res): Promise<void> => {
     .then(async (result) => {
       if (result.success && result.data) {
         const data = result.data;
+
+        // Content-based duplicate check: same address + sqft = same unit, different URL
+        if (data.address && data.squareFeet) {
+          const dupes = await db
+            .select({ id: listingsTable.id, listingUrl: listingsTable.listingUrl })
+            .from(listingsTable)
+            .where(
+              and(
+                ne(listingsTable.id, listing.id),
+                eq(listingsTable.hidden, false),
+                sql`LOWER(TRIM(${listingsTable.address})) = LOWER(TRIM(${data.address}))`,
+                eq(listingsTable.squareFeet, data.squareFeet),
+              )
+            );
+
+          if (dupes.length > 0) {
+            const original = dupes[0];
+            logger.warn(
+              { originalId: original.id, newId: listing.id, address: data.address },
+              "Duplicate listing detected — removing new entry",
+            );
+            await db.delete(listingsTable).where(eq(listingsTable.id, listing.id));
+            await db.insert(notificationsTable).values({
+              listingId: original.id,
+              type: "duplicate_detected",
+              message: `Duplicate blocked: "${data.address}" (${data.squareFeet} sqft) is already in your watchlist. The new URL was not added.`,
+            });
+            return;
+          }
+        }
+
         await db
           .update(listingsTable)
           .set({
