@@ -392,6 +392,7 @@ export default function Home() {
   const [condoTypes, setCondoTypes] = useState<string[]>([]);
   const [parkingInfos, setParkingInfos] = useState<string[]>([]);
   const [metros, setMetros] = useState<string[]>([]);
+  const [visitNextOnly, setVisitNextOnly] = useState(false);
   const [sortBy, setSortBy] = useState("updatedAt");
   const [sortDir, setSortDir] = useState("desc");
   const [page, setPage] = useState(1);
@@ -414,7 +415,7 @@ export default function Home() {
     return () => clearTimeout(timer);
   }, [search]);
 
-  React.useEffect(() => { setPage(1); }, [debouncedSearch, status, interestLevel, boroughs, parkingInfos, condoTypes, metros, pageSize]);
+  React.useEffect(() => { setPage(1); }, [debouncedSearch, status, interestLevel, boroughs, parkingInfos, condoTypes, metros, visitNextOnly, pageSize]);
 
   const queryParams: GetListingsParams = {
     search: debouncedSearch || undefined,
@@ -454,6 +455,7 @@ export default function Home() {
       if (parkingInfos.length > 0 && !parkingInfos.includes(l.parkingInfo || "")) return false;
       if (condoTypes.length > 0 && !condoTypes.includes(l.propertyType || "")) return false;
       if (metros.length > 0 && !metros.includes(l.nearestMetro || "")) return false;
+      if (visitNextOnly && !l.visitNext) return false;
       return true;
     });
     // condoFees / taxes are text columns — sort client-side after filtering
@@ -467,7 +469,7 @@ export default function Home() {
       });
     }
     return filtered;
-  }, [allListings, boroughs, parkingInfos, condoTypes, metros, sortBy, sortDir]);
+  }, [allListings, boroughs, parkingInfos, condoTypes, metros, visitNextOnly, sortBy, sortDir]);
 
   const totalCount = allListings?.length ?? 0;
   const filteredCount = listings.length;
@@ -554,8 +556,8 @@ export default function Home() {
     <div className="flex flex-col items-center justify-center py-20 text-muted-foreground gap-3">
       <MapPin className="w-10 h-10 opacity-30" />
       <p className="text-sm font-medium">No listings found</p>
-      {(debouncedSearch || status !== "all" || interestLevel !== "all" || boroughs.length > 0 || parkingInfos.length > 0 || condoTypes.length > 0 || metros.length > 0) && (
-        <Button variant="outline" size="sm" onClick={() => { setSearch(""); setStatus("all"); setInterestLevel("all"); setBoroughs([]); setParkingInfos([]); setCondoTypes([]); setMetros([]); }}>
+      {(debouncedSearch || status !== "all" || interestLevel !== "all" || boroughs.length > 0 || parkingInfos.length > 0 || condoTypes.length > 0 || metros.length > 0 || visitNextOnly) && (
+        <Button variant="outline" size="sm" onClick={() => { setSearch(""); setStatus("all"); setInterestLevel("all"); setBoroughs([]); setParkingInfos([]); setCondoTypes([]); setMetros([]); setVisitNextOnly(false); }}>
           Clear filters
         </Button>
       )}
@@ -653,6 +655,14 @@ export default function Home() {
           <MultiFilter label="Metro" options={metroOptions} selected={metros} onChange={setMetros} />
           <MultiFilter label="Parking" options={parkingOptions} selected={parkingInfos} onChange={setParkingInfos} />
           <MultiFilter label="Type" options={condoTypeOptions} selected={condoTypes} onChange={setCondoTypes} />
+
+          <button
+            onClick={() => setVisitNextOnly((v) => !v)}
+            className={`h-7 px-3 text-xs rounded-md border flex items-center gap-1.5 transition-colors ${visitNextOnly ? "bg-primary text-primary-foreground border-primary" : "bg-background text-muted-foreground hover:bg-accent"}`}
+          >
+            <Flag className="w-3 h-3" />
+            Visit Next
+          </button>
 
           <Select value={`${sortBy}-${sortDir}`} onValueChange={(v) => { const [by, dir] = v.split("-"); setSortBy(by); setSortDir(dir); }}>
             <SelectTrigger className="w-[170px] h-7 text-xs" data-testid="filter-sort">
