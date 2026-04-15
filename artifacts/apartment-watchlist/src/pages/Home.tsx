@@ -316,7 +316,12 @@ function InterestBadge({ level }: { level: string | null | undefined }) {
   );
 }
 
-const INTEREST_CYCLE: Array<string | null> = [null, "high", "medium", "low"];
+const INTEREST_OPTIONS: Array<{ value: string | null; label: string }> = [
+  { value: "high", label: "High" },
+  { value: "medium", label: "Medium" },
+  { value: "low", label: "Low" },
+  { value: null, label: "None" },
+];
 
 function InlineInterest({
   level,
@@ -328,8 +333,6 @@ function InlineInterest({
   isPending: boolean;
 }) {
   const current = (!level || level === "none") ? null : level;
-  const idx = INTEREST_CYCLE.indexOf(current);
-  const next = INTEREST_CYCLE[(idx + 1) % INTEREST_CYCLE.length];
   const cls =
     current === "high"
       ? "bg-primary/15 text-primary border-primary/30"
@@ -339,13 +342,35 @@ function InlineInterest({
       ? "bg-muted/50 text-muted-foreground border-border"
       : "border-dashed border-muted-foreground/25 text-muted-foreground/40";
   return (
-    <button
-      title={`Click to set: ${next ?? "none"}`}
-      onClick={() => !isPending && onSet(next)}
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide border transition-opacity hover:opacity-70 ${cls} ${isPending ? "opacity-50 cursor-wait" : "cursor-pointer"}`}
-    >
-      {current ?? "—"}
-    </button>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild disabled={isPending}>
+        <button
+          className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide border transition-opacity hover:opacity-70 ${cls} ${isPending ? "opacity-50 cursor-wait" : "cursor-pointer"}`}
+        >
+          {current ?? "—"}
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="min-w-[100px]">
+        {INTEREST_OPTIONS.map((opt) => (
+          <DropdownMenuItem
+            key={String(opt.value)}
+            onClick={() => onSet(opt.value)}
+            className={`text-xs gap-2 ${current === opt.value ? "font-semibold" : ""}`}
+          >
+            {opt.value && (
+              <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                opt.value === "high" ? "bg-primary" :
+                opt.value === "medium" ? "bg-blue-400" :
+                "bg-muted-foreground/40"
+              }`} />
+            )}
+            {!opt.value && <span className="w-2 h-2 flex-shrink-0" />}
+            {opt.label}
+            {current === opt.value && <Check className="w-3 h-3 ml-auto" />}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
