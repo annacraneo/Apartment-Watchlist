@@ -663,6 +663,31 @@ export default function Home() {
                   <Copy className="w-3.5 h-3.5 mr-1.5" />
                   Copy {selectedIds.size}
                 </Button>
+                {(() => {
+                  const selectedListings = (allListings ?? []).filter((l) => selectedIds.has(l.id));
+                  const allFlagged = selectedListings.length > 0 && selectedListings.every((l) => l.visitNext);
+                  return (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className={allFlagged ? "border-amber-500/60 text-amber-500 hover:bg-amber-500/10" : "border-amber-500/40 text-amber-500 hover:bg-amber-500/10"}
+                      disabled={updateListing.isPending}
+                      onClick={async () => {
+                        const next = !allFlagged;
+                        await Promise.all(
+                          Array.from(selectedIds).map((id) =>
+                            updateListing.mutateAsync({ id, data: { visitNext: next } })
+                          )
+                        );
+                        toast({ title: next ? `Flagged ${selectedIds.size} for visit` : `Unflagged ${selectedIds.size}` });
+                      }}
+                      data-testid="btn-bulk-flag"
+                    >
+                      <Flag className={`w-3.5 h-3.5 mr-1.5 ${allFlagged ? "fill-amber-500/50" : ""}`} />
+                      {allFlagged ? `Unflag ${selectedIds.size}` : `Flag ${selectedIds.size}`}
+                    </Button>
+                  );
+                })()}
                 <Button variant="destructive" size="sm" onClick={() => bulkDelete.mutate(Array.from(selectedIds))} disabled={bulkDelete.isPending} data-testid="btn-bulk-delete">
                   <Trash2 className="w-3.5 h-3.5 mr-1.5" />
                   Delete {selectedIds.size}
