@@ -603,10 +603,34 @@ export default function Home() {
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             {selectedIds.size > 0 && (
-              <Button variant="destructive" size="sm" onClick={() => bulkDelete.mutate(Array.from(selectedIds))} disabled={bulkDelete.isPending} data-testid="btn-bulk-delete">
-                <Trash2 className="w-3.5 h-3.5 mr-1.5" />
-                Delete {selectedIds.size}
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const selected = (allListings ?? []).filter((l) => selectedIds.has(l.id));
+                    const text = selected
+                      .map((l) => {
+                        const address = l.address || l.title || "";
+                        const borough = l.neighborhood || "";
+                        const url = l.listingUrl || "";
+                        return [address, borough, url].filter(Boolean).join("\t");
+                      })
+                      .join("\n");
+                    navigator.clipboard.writeText(text).then(() => {
+                      toast({ title: `Copied ${selected.length} listing${selected.length !== 1 ? "s" : ""}` });
+                    });
+                  }}
+                  data-testid="btn-bulk-copy"
+                >
+                  <Copy className="w-3.5 h-3.5 mr-1.5" />
+                  Copy {selectedIds.size}
+                </Button>
+                <Button variant="destructive" size="sm" onClick={() => bulkDelete.mutate(Array.from(selectedIds))} disabled={bulkDelete.isPending} data-testid="btn-bulk-delete">
+                  <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                  Delete {selectedIds.size}
+                </Button>
+              </>
             )}
             <AddListingDialog />
             <Button variant="outline" size="sm" onClick={() => checkAll.mutate()} disabled={checkAll.isPending} data-testid="btn-check-all">
