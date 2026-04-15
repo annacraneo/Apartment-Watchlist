@@ -634,15 +634,27 @@ export default function Home() {
                   size="sm"
                   onClick={() => {
                     const selected = (allListings ?? []).filter((l) => selectedIds.has(l.id));
-                    const text = selected
-                      .map((l) => {
-                        const address = l.address || l.title || "";
-                        const borough = l.neighborhood || "";
-                        const url = l.listingUrl || "";
-                        return [address, borough, url].filter(Boolean).join("\t");
-                      })
-                      .join("\n");
-                    navigator.clipboard.writeText(text).then(() => {
+                    const lines = selected.map((l) => {
+                      const address = l.address || l.title || "";
+                      const borough = l.neighborhood || "";
+                      const url = l.listingUrl || "";
+                      return { address, borough, url };
+                    });
+                    const htmlLines = lines.map(({ address, url, borough }) => {
+                      const linked = url
+                        ? `<a href="${url}">${address}</a>`
+                        : address;
+                      return borough ? `${linked} - ${borough}` : linked;
+                    });
+                    const plainLines = lines.map(({ address, borough }) =>
+                      borough ? `${address} - ${borough}` : address
+                    );
+                    const htmlBlob = new Blob(
+                      [`<meta charset="utf-8">${htmlLines.join("<br>")}`],
+                      { type: "text/html" }
+                    );
+                    const textBlob = new Blob([plainLines.join("\n")], { type: "text/plain" });
+                    navigator.clipboard.write([new ClipboardItem({ "text/html": htmlBlob, "text/plain": textBlob })]).then(() => {
                       toast({ title: `Copied ${selected.length} listing${selected.length !== 1 ? "s" : ""}` });
                     });
                   }}
