@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "wouter";
-import { Bell, Search, Settings, ExternalLink } from "lucide-react";
+import { Bell, Settings, ExternalLink, Sun, Moon } from "lucide-react";
 import { 
   useGetNotifications, 
   useMarkAllNotificationsRead, 
@@ -19,9 +19,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
+import { useTheme } from "@/hooks/use-theme";
 
 export function Header() {
   const queryClient = useQueryClient();
+  const { theme, toggle } = useTheme();
   const notifParams = { unreadOnly: "true" } as const;
   const { data: notifications = [] } = useGetNotifications(
     notifParams,
@@ -66,7 +68,17 @@ export function Header() {
           </nav>
         </div>
 
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggle}
+            title={theme === "dark" ? "Switch to day mode" : "Switch to night mode"}
+            data-testid="btn-theme-toggle"
+          >
+            {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+          </Button>
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="relative" data-testid="btn-notifications">

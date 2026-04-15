@@ -66,8 +66,70 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
+/* ── Light (day) theme — default ── */
 :root {
-  /* Modern dark — deep indigo-tinted slate */
+  --background: 220 20% 97%;
+  --foreground: 226 25% 12%;
+  --border: 226 15% 87%;
+  --input: 0 0% 100%;
+  --ring: 250 70% 55%;
+
+  --card: 0 0% 100%;
+  --card-foreground: 226 25% 12%;
+  --card-border: 226 15% 88%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 226 25% 12%;
+  --popover-border: 226 15% 88%;
+
+  --primary: 250 70% 55%;
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 220 15% 93%;
+  --secondary-foreground: 226 25% 12%;
+
+  --muted: 220 15% 93%;
+  --muted-foreground: 220 12% 45%;
+
+  --accent: 220 15% 92%;
+  --accent-foreground: 226 25% 12%;
+
+  --destructive: 0 65% 50%;
+  --destructive-foreground: 0 0% 100%;
+
+  --chart-1: 250 70% 55%;
+  --chart-2: 190 70% 45%;
+  --chart-3: 45 85% 45%;
+  --chart-4: 320 65% 50%;
+  --chart-5: 10 70% 50%;
+
+  --sidebar: 220 20% 95%;
+  --sidebar-foreground: 226 25% 12%;
+  --sidebar-border: 226 15% 88%;
+  --sidebar-primary: 250 70% 55%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 220 15% 92%;
+  --sidebar-accent-foreground: 226 25% 12%;
+  --sidebar-ring: 250 70% 55%;
+
+  --app-font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+  --app-font-serif: Georgia, serif;
+  --app-font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+  --radius: 0.5rem;
+
+  --button-outline: rgba(0,0,0, 0.08);
+  --badge-outline: rgba(0,0,0, 0.05);
+  --opaque-button-border-intensity: 9;
+  --elevate-1: rgba(0,0,0, 0.02);
+  --elevate-2: rgba(0,0,0, 0.04);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+  --shadow: 0 4px 8px rgba(0,0,0,0.08);
+  --shadow-md: 0 6px 16px rgba(0,0,0,0.10);
+  --shadow-lg: 0 12px 28px rgba(0,0,0,0.12);
+}
+
+/* ── Dark (night) theme ── */
+.dark {
   --background: 226 20% 8%;
   --foreground: 220 15% 92%;
   --border: 226 14% 18%;
@@ -82,7 +144,6 @@
   --popover-foreground: 220 15% 92%;
   --popover-border: 226 14% 20%;
 
-  /* Violet accent — modern and premium */
   --primary: 250 70% 65%;
   --primary-foreground: 226 20% 8%;
 
@@ -113,11 +174,6 @@
   --sidebar-accent-foreground: 220 15% 92%;
   --sidebar-ring: 250 70% 65%;
 
-  --app-font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
-  --app-font-serif: Georgia, serif;
-  --app-font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
-  --radius: 0.5rem;
-
   --button-outline: rgba(255,255,255, 0.08);
   --badge-outline: rgba(255,255,255, 0.05);
   --opaque-button-border-intensity: 9;
@@ -127,30 +183,6 @@
   --shadow: 0 4px 8px rgba(0,0,0,0.5);
   --shadow-md: 0 6px 16px rgba(0,0,0,0.5);
   --shadow-lg: 0 12px 28px rgba(0,0,0,0.6);
-}
-
-.dark {
-  --background: 226 20% 8%;
-  --foreground: 220 15% 92%;
-  --border: 226 14% 18%;
-  --input: 226 14% 16%;
-  --ring: 250 70% 65%;
-  --card: 226 18% 11%;
-  --card-foreground: 220 15% 92%;
-  --card-border: 226 14% 18%;
-  --popover: 226 18% 11%;
-  --popover-foreground: 220 15% 92%;
-  --popover-border: 226 14% 20%;
-  --primary: 250 70% 65%;
-  --primary-foreground: 226 20% 8%;
-  --secondary: 226 14% 16%;
-  --secondary-foreground: 220 15% 92%;
-  --muted: 226 14% 16%;
-  --muted-foreground: 220 12% 55%;
-  --accent: 250 70% 65%;
-  --accent-foreground: 226 20% 8%;
-  --destructive: 0 65% 55%;
-  --destructive-foreground: 220 15% 92%;
 }
 
 @layer base {
