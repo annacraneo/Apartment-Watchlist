@@ -80,6 +80,57 @@ import {
 import { AddListingDialog } from "@/components/AddListingDialog";
 import { StatusBadge } from "@/components/StatusBadge";
 
+function MultiFilter({
+  label,
+  options,
+  selected,
+  onChange,
+}: {
+  label: string;
+  options: string[];
+  selected: string[];
+  onChange: (vals: string[]) => void;
+}) {
+  const toggle = (val: string) =>
+    onChange(selected.includes(val) ? selected.filter((v) => v !== val) : [...selected, val]);
+  const count = selected.length;
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button className={`h-7 px-3 text-xs rounded-md border bg-background flex items-center gap-1.5 hover:bg-accent transition-colors ${count > 0 ? "border-primary/50 text-foreground" : "text-muted-foreground"}`}>
+          <span>{count > 0 ? `${label} (${count})` : label}</span>
+          <ChevronDown className="w-3 h-3 opacity-50" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[200px] p-1" align="start">
+        {count > 0 && (
+          <button
+            className="text-[11px] text-muted-foreground px-2 py-1 w-full text-left hover:text-foreground rounded"
+            onClick={() => onChange([])}
+          >
+            Clear selection
+          </button>
+        )}
+        <div className="max-h-52 overflow-y-auto">
+          {options.map((opt) => (
+            <label
+              key={opt}
+              className="flex items-center gap-2 px-2 py-1.5 text-xs rounded hover:bg-accent cursor-pointer"
+            >
+              <Checkbox
+                checked={selected.includes(opt)}
+                onCheckedChange={() => toggle(opt)}
+                className="h-3.5 w-3.5"
+              />
+              <span className="truncate">{opt}</span>
+            </label>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 interface PriceChange {
   id: number;
   listingId: number;
@@ -337,10 +388,10 @@ export default function Home() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [status, setStatus] = useState<string>("all");
   const [interestLevel, setInterestLevel] = useState<string>("all");
-  const [borough, setBorough] = useState<string>("all");
-  const [condoType, setCondoType] = useState<string>("all");
-  const [parkingInfo, setParkingInfo] = useState<string>("all");
-  const [metro, setMetro] = useState<string>("all");
+  const [boroughs, setBoroughs] = useState<string[]>([]);
+  const [condoTypes, setCondoTypes] = useState<string[]>([]);
+  const [parkingInfos, setParkingInfos] = useState<string[]>([]);
+  const [metros, setMetros] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState("updatedAt");
   const [sortDir, setSortDir] = useState("desc");
   const [page, setPage] = useState(1);
@@ -363,7 +414,7 @@ export default function Home() {
     return () => clearTimeout(timer);
   }, [search]);
 
-  React.useEffect(() => { setPage(1); }, [debouncedSearch, status, interestLevel, borough, parkingInfo, condoType, metro, pageSize]);
+  React.useEffect(() => { setPage(1); }, [debouncedSearch, status, interestLevel, boroughs, parkingInfos, condoTypes, metros, pageSize]);
 
   const queryParams: GetListingsParams = {
     search: debouncedSearch || undefined,
@@ -399,10 +450,10 @@ export default function Home() {
   const listings = useMemo(() => {
     if (!allListings) return [];
     let filtered = allListings.filter((l) => {
-      if (borough !== "all" && l.neighborhood !== borough) return false;
-      if (parkingInfo !== "all" && l.parkingInfo !== parkingInfo) return false;
-      if (condoType !== "all" && l.propertyType !== condoType) return false;
-      if (metro !== "all" && l.nearestMetro !== metro) return false;
+      if (boroughs.length > 0 && !boroughs.includes(l.neighborhood || "")) return false;
+      if (parkingInfos.length > 0 && !parkingInfos.includes(l.parkingInfo || "")) return false;
+      if (condoTypes.length > 0 && !condoTypes.includes(l.propertyType || "")) return false;
+      if (metros.length > 0 && !metros.includes(l.nearestMetro || "")) return false;
       return true;
     });
     // condoFees / taxes are text columns — sort client-side after filtering
@@ -416,7 +467,7 @@ export default function Home() {
       });
     }
     return filtered;
-  }, [allListings, borough, parkingInfo, condoType, metro, sortBy, sortDir]);
+  }, [allListings, boroughs, parkingInfos, condoTypes, metros, sortBy, sortDir]);
 
   const totalCount = allListings?.length ?? 0;
   const filteredCount = listings.length;
@@ -494,16 +545,17 @@ export default function Home() {
       }),
   });
 
-  const boroughOptions = [...new Set((allListings ?? []).map((l) => l.neighborhood).filter(Boolean))];
-  const parkingOptions = [...new Set((allListings ?? []).map((l) => l.parkingInfo).filter(Boolean))];
+  const boroughOptions = [...new Set((allListings ?? []).map((l) => l.neighborhood).filter(Boolean))].sort() as string[];
+  const parkingOptions = [...new Set((allListings ?? []).map((l) => l.parkingInfo).filter(Boolean))].sort() as string[];
   const metroOptions = [...new Set((allListings ?? []).map((l) => l.nearestMetro).filter(Boolean))].sort() as string[];
+  const condoTypeOptions = [...new Set((allListings ?? []).map((l) => l.propertyType).filter(Boolean))].sort() as string[];
 
   const EmptyState = () => (
     <div className="flex flex-col items-center justify-center py-20 text-muted-foreground gap-3">
       <MapPin className="w-10 h-10 opacity-30" />
       <p className="text-sm font-medium">No listings found</p>
-      {(debouncedSearch || status !== "all" || borough !== "all" || parkingInfo !== "all" || condoType !== "all" || metro !== "all") && (
-        <Button variant="outline" size="sm" onClick={() => { setSearch(""); setStatus("all"); setInterestLevel("all"); setBorough("all"); setParkingInfo("all"); setCondoType("all"); setMetro("all"); }}>
+      {(debouncedSearch || status !== "all" || interestLevel !== "all" || boroughs.length > 0 || parkingInfos.length > 0 || condoTypes.length > 0 || metros.length > 0) && (
+        <Button variant="outline" size="sm" onClick={() => { setSearch(""); setStatus("all"); setInterestLevel("all"); setBoroughs([]); setParkingInfos([]); setCondoTypes([]); setMetros([]); }}>
           Clear filters
         </Button>
       )}
@@ -597,52 +649,10 @@ export default function Home() {
             </SelectContent>
           </Select>
 
-          <Select value={borough} onValueChange={setBorough}>
-            <SelectTrigger className="w-[190px] h-7 text-xs" data-testid="filter-borough">
-              <SelectValue placeholder="Borough" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Boroughs</SelectItem>
-              {boroughOptions.map((item) => (
-                <SelectItem key={item as string} value={item as string}>{item}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Select value={metro} onValueChange={setMetro}>
-            <SelectTrigger className="w-[190px] h-7 text-xs" data-testid="filter-metro">
-              <SelectValue placeholder="Metro Station" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Metro Stations</SelectItem>
-              {metroOptions.map((item) => (
-                <SelectItem key={item} value={item}>{item}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Select value={parkingInfo} onValueChange={setParkingInfo}>
-            <SelectTrigger className="w-[150px] h-7 text-xs" data-testid="filter-parking">
-              <SelectValue placeholder="Parking" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Parking</SelectItem>
-              {parkingOptions.map((item) => (
-                <SelectItem key={item as string} value={item as string}>{item}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Select value={condoType} onValueChange={setCondoType}>
-            <SelectTrigger className="w-[160px] h-7 text-xs" data-testid="filter-condo-type">
-              <SelectValue placeholder="Condo Type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Condo Types</SelectItem>
-              <SelectItem value="Divided">Divided</SelectItem>
-              <SelectItem value="Undivided">Undivided</SelectItem>
-            </SelectContent>
-          </Select>
+          <MultiFilter label="Borough" options={boroughOptions} selected={boroughs} onChange={setBoroughs} />
+          <MultiFilter label="Metro" options={metroOptions} selected={metros} onChange={setMetros} />
+          <MultiFilter label="Parking" options={parkingOptions} selected={parkingInfos} onChange={setParkingInfos} />
+          <MultiFilter label="Type" options={condoTypeOptions} selected={condoTypes} onChange={setCondoTypes} />
 
           <Select value={`${sortBy}-${sortDir}`} onValueChange={(v) => { const [by, dir] = v.split("-"); setSortBy(by); setSortDir(dir); }}>
             <SelectTrigger className="w-[170px] h-7 text-xs" data-testid="filter-sort">
