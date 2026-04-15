@@ -639,25 +639,21 @@ export default function Home() {
                       borough: l.neighborhood || "",
                       url: l.listingUrl || "",
                     }));
-                    const htmlContent = lines.map(({ address, url, borough }) => {
+                    const htmlLines = lines.map(({ address, url, borough }) => {
                       const linked = url ? `<a href="${url}">${address}</a>` : address;
                       return borough ? `${linked} - ${borough}` : linked;
-                    }).join("<br>");
-
-                    const el = document.createElement("div");
-                    el.style.cssText = "position:fixed;left:-9999px;top:0;opacity:0";
-                    el.contentEditable = "true";
-                    el.innerHTML = htmlContent;
-                    document.body.appendChild(el);
-                    const range = document.createRange();
-                    range.selectNodeContents(el);
-                    const sel = window.getSelection();
-                    sel?.removeAllRanges();
-                    sel?.addRange(range);
-                    document.execCommand("copy");
-                    sel?.removeAllRanges();
-                    document.body.removeChild(el);
-                    toast({ title: `Copied ${selected.length} listing${selected.length !== 1 ? "s" : ""}` });
+                    });
+                    const plainLines = lines.map(({ address, borough }) =>
+                      borough ? `${address} - ${borough}` : address
+                    );
+                    const htmlBlob = new Blob(
+                      [`<meta charset="utf-8">${htmlLines.join("<br>")}`],
+                      { type: "text/html" }
+                    );
+                    const textBlob = new Blob([plainLines.join("\n")], { type: "text/plain" });
+                    navigator.clipboard.write([new ClipboardItem({ "text/html": htmlBlob, "text/plain": textBlob })]).then(() => {
+                      toast({ title: `Copied ${selected.length} listing${selected.length !== 1 ? "s" : ""}` });
+                    });
                   }}
                   data-testid="btn-bulk-copy"
                 >
