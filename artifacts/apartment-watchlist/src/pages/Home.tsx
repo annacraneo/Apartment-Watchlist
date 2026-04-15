@@ -455,7 +455,7 @@ export default function Home() {
 
   const queryParams: GetListingsParams = {
     search: debouncedSearch || undefined,
-    status: status !== "all" ? status : undefined,
+    status: (status !== "all" && status !== "new") ? status : undefined,
     interestLevel: interestLevel !== "all" ? interestLevel : undefined,
     sortBy: (sortBy === "condoFees" || sortBy === "taxes") ? "updatedAt" : sortBy,
     sortDir,
@@ -492,6 +492,7 @@ export default function Home() {
       if (condoTypes.length > 0 && !condoTypes.includes(l.propertyType || "")) return false;
       if (metros.length > 0 && !metros.includes(l.nearestMetro || "")) return false;
       if (visitNextOnly && !l.visitNext) return false;
+      if (status === "new" && !isNewListing(l.firstSavedAt)) return false;
       return true;
     });
     // condoFees / taxes are text columns — sort client-side after filtering
@@ -727,6 +728,7 @@ export default function Home() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Statuses</SelectItem>
+              <SelectItem value="new">New (24h)</SelectItem>
               <SelectItem value="active">Active</SelectItem>
               <SelectItem value="inactive">Inactive</SelectItem>
             </SelectContent>
