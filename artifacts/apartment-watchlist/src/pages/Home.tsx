@@ -670,7 +670,7 @@ export default function Home() {
                     <Button
                       variant="outline"
                       size="sm"
-                      className={allFlagged ? "border-amber-500/60 text-amber-500 hover:bg-amber-500/10" : "border-amber-500/40 text-amber-500 hover:bg-amber-500/10"}
+                      className={allFlagged ? "border-violet-500/70 text-violet-500 hover:bg-violet-500/10" : "border-violet-500/50 text-violet-500 hover:bg-violet-500/10"}
                       disabled={updateListing.isPending}
                       onClick={async () => {
                         const next = !allFlagged;
@@ -683,7 +683,7 @@ export default function Home() {
                       }}
                       data-testid="btn-bulk-flag"
                     >
-                      <Flag className={`w-3.5 h-3.5 mr-1.5 ${allFlagged ? "fill-amber-500/50" : ""}`} />
+                      <Flag className={`w-3.5 h-3.5 mr-1.5 ${allFlagged ? "fill-violet-500/50" : ""}`} />
                       {allFlagged ? `Unflag ${selectedIds.size}` : `Flag ${selectedIds.size}`}
                     </Button>
                   );
@@ -877,7 +877,7 @@ export default function Home() {
                     return (
                       <TableRow
                         key={listing.id}
-                        className={`group ${listing.visitNext ? "bg-amber-500/10 hover:bg-amber-500/15" : ""}`}
+                        className={`group ${listing.visitNext ? "bg-violet-500/10 hover:bg-violet-500/15" : ""}`}
                         data-testid={`row-listing-${listing.id}`}
                       >
                         <TableCell className="px-2">
@@ -902,10 +902,10 @@ export default function Home() {
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  className={`h-6 w-6 transition-colors ${listing.visitNext ? "text-amber-500" : "text-muted-foreground/25 hover:text-amber-500 opacity-0 group-hover:opacity-100"}`}
+                                  className={`h-6 w-6 transition-colors ${listing.visitNext ? "text-violet-500" : "text-muted-foreground/25 hover:text-violet-500 opacity-0 group-hover:opacity-100"}`}
                                   onClick={() => updateListing.mutate({ id: listing.id, data: { visitNext: !listing.visitNext } })}
                                 >
-                                  <Flag className={`w-3 h-3 ${listing.visitNext ? "fill-amber-500/50" : ""}`} />
+                                  <Flag className={`w-3 h-3 ${listing.visitNext ? "fill-violet-500/50" : ""}`} />
                                 </Button>
                               </TooltipTrigger>
                               <TooltipContent side="right">
@@ -1144,7 +1144,7 @@ export default function Home() {
                       key={listing.id}
                       className={`group flex flex-col rounded-2xl border overflow-hidden transition-all duration-200 hover:shadow-xl hover:shadow-black/30 hover:-translate-y-0.5 ${
                         listing.visitNext
-                          ? "bg-amber-500/10 border-amber-500/50 ring-1 ring-amber-500/30"
+                          ? "bg-violet-500/10 border-violet-500/50 ring-1 ring-violet-500/30"
                           : isSelected
                           ? "bg-card border-primary/50 ring-1 ring-primary/30"
                           : "bg-card border-border hover:border-border/80"
@@ -1316,12 +1316,12 @@ export default function Home() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className={`h-7 w-7 transition-colors ${listing.visitNext ? "text-amber-500" : "text-muted-foreground/40 hover:text-amber-500 opacity-0 group-hover:opacity-100 data-[flagged=true]:opacity-100"}`}
+                            className={`h-7 w-7 transition-colors ${listing.visitNext ? "text-violet-500" : "text-muted-foreground/40 hover:text-violet-500 opacity-0 group-hover:opacity-100 data-[flagged=true]:opacity-100"}`}
                             data-flagged={listing.visitNext}
                             title={listing.visitNext ? "Remove visit flag" : "Flag to visit next"}
                             onClick={() => updateListing.mutate({ id: listing.id, data: { visitNext: !listing.visitNext } })}
                           >
-                            <Flag className={`w-3.5 h-3.5 ${listing.visitNext ? "fill-amber-500/50" : ""}`} />
+                            <Flag className={`w-3.5 h-3.5 ${listing.visitNext ? "fill-violet-500/50" : ""}`} />
                           </Button>
                           <NotesPopover {...notesProps(listing)} />
                           <Button
