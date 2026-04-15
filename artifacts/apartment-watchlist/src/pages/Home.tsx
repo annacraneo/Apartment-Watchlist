@@ -217,7 +217,7 @@ function CopyText({ text }: { text: string }) {
           setTimeout(() => setCopied(false), 1500);
         });
       }}
-      className="ml-0.5 inline-flex items-center justify-center w-5 h-5 rounded text-foreground/40 hover:text-foreground hover:bg-muted transition-colors"
+      className="ml-0.5 inline-flex items-center justify-center w-5 h-5 rounded text-foreground/70 hover:text-foreground hover:bg-muted transition-colors"
       title="Copy address"
     >
       {copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
@@ -858,19 +858,19 @@ export default function Home() {
                               </span>
                             )}
                             {(listing.address || listing.title) && (
-                              <CopyText text={stripBorough(listing.address || listing.title || "")} />
-                            )}
-                            {(listing.address || listing.title) && (
                               <a
                                 href={streetViewUrl(listing.address || listing.title || "", listing.latitude, listing.longitude)}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 title="Open in Google Maps Street View"
-                                className="inline-flex items-center justify-center w-5 h-5 rounded text-foreground/40 hover:text-primary hover:bg-muted transition-colors flex-shrink-0"
+                                className="inline-flex items-center justify-center w-5 h-5 rounded text-foreground/70 hover:text-primary hover:bg-muted transition-colors flex-shrink-0"
                                 onClick={(e) => e.stopPropagation()}
                               >
                                 <MapIcon className="w-3.5 h-3.5" />
                               </a>
+                            )}
+                            {(listing.address || listing.title) && (
+                              <CopyText text={stripBorough(listing.address || listing.title || "")} />
                             )}
                             {isNewListing(listing.firstSavedAt) && (
                               <span className="flex-shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 leading-none">
@@ -1137,18 +1137,18 @@ export default function Home() {
                             ) : (
                               <p className="text-sm font-medium leading-snug">{streetAddress}</p>
                             )}
-                            {streetAddress && <CopyText text={streetAddress} />}
                             {streetAddress && (
                               <a
                                 href={streetViewUrl(listing.address || listing.title || streetAddress, listing.latitude, listing.longitude)}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 title="Open in Google Maps Street View"
-                                className="inline-flex items-center justify-center w-5 h-5 rounded text-foreground/40 hover:text-primary hover:bg-muted transition-colors"
+                                className="inline-flex items-center justify-center w-5 h-5 rounded text-foreground/70 hover:text-primary hover:bg-muted transition-colors"
                               >
                                 <MapIcon className="w-3.5 h-3.5" />
                               </a>
                             )}
+                            {streetAddress && <CopyText text={streetAddress} />}
                           </div>
                           {borough && (
                             <p className="text-xs text-muted-foreground mt-0.5">
