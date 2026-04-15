@@ -228,22 +228,17 @@ function CopyText({ text }: { text: string }) {
 interface NotesPopoverProps {
   listingId: number;
   notes: string | null | undefined;
-  interestLevel: string | null | undefined;
-  onSave: (data: { notes: string; interestLevel: string }) => void;
+  onSave: (notes: string) => void;
   isPending: boolean;
 }
 
-function NotesPopover({ listingId, notes, interestLevel, onSave, isPending }: NotesPopoverProps) {
+function NotesPopover({ listingId, notes, onSave, isPending }: NotesPopoverProps) {
   const [open, setOpen] = useState(false);
   const [localNotes, setLocalNotes] = useState(notes || "");
-  const [localInterest, setLocalInterest] = useState(interestLevel || "");
 
   React.useEffect(() => {
-    if (open) {
-      setLocalNotes(notes || "");
-      setLocalInterest(interestLevel || "");
-    }
-  }, [open, notes, interestLevel]);
+    if (open) setLocalNotes(notes || "");
+  }, [open, notes]);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -260,30 +255,13 @@ function NotesPopover({ listingId, notes, interestLevel, onSave, isPending }: No
       </PopoverTrigger>
       <PopoverContent className="w-72 p-4 space-y-3" align="end">
         <p className="text-sm font-semibold">Notes</p>
-        <div className="space-y-1">
-          <Label className="text-xs text-muted-foreground">Interest</Label>
-          <Select value={localInterest} onValueChange={setLocalInterest}>
-            <SelectTrigger className="h-8 text-sm">
-              <SelectValue placeholder="— none —" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">— none —</SelectItem>
-              <SelectItem value="high">High</SelectItem>
-              <SelectItem value="medium">Medium</SelectItem>
-              <SelectItem value="low">Low</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs text-muted-foreground">Notes</Label>
-          <Textarea
-            value={localNotes}
-            onChange={(e) => setLocalNotes(e.target.value)}
-            placeholder="Personal notes..."
-            className="text-sm min-h-[80px]"
-          />
-        </div>
-        <Button size="sm" className="w-full" onClick={() => { onSave({ notes: localNotes, interestLevel: localInterest }); setOpen(false); }} disabled={isPending}>
+        <Textarea
+          value={localNotes}
+          onChange={(e) => setLocalNotes(e.target.value)}
+          placeholder="Personal notes..."
+          className="text-sm min-h-[80px]"
+        />
+        <Button size="sm" className="w-full" onClick={() => { onSave(localNotes); setOpen(false); }} disabled={isPending}>
           Save
         </Button>
       </PopoverContent>
@@ -335,6 +313,39 @@ function InterestBadge({ level }: { level: string | null | undefined }) {
     <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide border ${cls}`}>
       {level}
     </span>
+  );
+}
+
+const INTEREST_CYCLE: Array<string | null> = [null, "high", "medium", "low"];
+
+function InlineInterest({
+  level,
+  onSet,
+  isPending,
+}: {
+  level: string | null | undefined;
+  onSet: (next: string | null) => void;
+  isPending: boolean;
+}) {
+  const current = (!level || level === "none") ? null : level;
+  const idx = INTEREST_CYCLE.indexOf(current);
+  const next = INTEREST_CYCLE[(idx + 1) % INTEREST_CYCLE.length];
+  const cls =
+    current === "high"
+      ? "bg-primary/15 text-primary border-primary/30"
+      : current === "medium"
+      ? "bg-blue-500/15 text-blue-400 border-blue-500/30"
+      : current === "low"
+      ? "bg-muted/50 text-muted-foreground border-border"
+      : "border-dashed border-muted-foreground/25 text-muted-foreground/40";
+  return (
+    <button
+      title={`Click to set: ${next ?? "none"}`}
+      onClick={() => !isPending && onSet(next)}
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide border transition-opacity hover:opacity-70 ${cls} ${isPending ? "opacity-50 cursor-wait" : "cursor-pointer"}`}
+    >
+      {current ?? "—"}
+    </button>
   );
 }
 
@@ -538,14 +549,13 @@ export default function Home() {
   const notesProps = (listing: (typeof listings)[0]) => ({
     listingId: listing.id,
     notes: listing.notes,
-    interestLevel: listing.interestLevel,
     isPending: updateListing.isPending,
-    onSave: (data: { notes: string; interestLevel: string }) =>
-      updateListing.mutate({
-        id: listing.id,
-        data: { notes: data.notes || null, interestLevel: data.interestLevel === "none" ? null : data.interestLevel || null },
-      }),
+    onSave: (notes: string) =>
+      updateListing.mutate({ id: listing.id, data: { notes: notes || null } }),
   });
+
+  const onSetInterest = (id: number) => (next: string | null) =>
+    updateListing.mutate({ id, data: { interestLevel: next } });
 
   const boroughOptions = [...new Set((allListings ?? []).map((l) => l.neighborhood).filter(Boolean))].sort() as string[];
   const parkingOptions = [...new Set((allListings ?? []).map((l) => l.parkingInfo).filter(Boolean))].sort() as string[];
@@ -910,7 +920,9 @@ export default function Home() {
                         <TableCell className="text-muted-foreground">{fmt(listing.neighborhood)}</TableCell>
 
                         {/* Interest */}
-                        <TableCell><InterestBadge level={listing.interestLevel} /></TableCell>
+                        <TableCell>
+                          <InlineInterest level={listing.interestLevel} onSet={onSetInterest(listing.id)} isPending={updateListing.isPending} />
+                        </TableCell>
 
                         {/* Parking */}
                         <TableCell className="text-muted-foreground">{fmt(listing.parkingInfo)}</TableCell>
@@ -1100,7 +1112,7 @@ export default function Home() {
                               </span>
                             )}
                           </div>
-                          <InterestBadge level={listing.interestLevel} />
+                          <InlineInterest level={listing.interestLevel} onSet={onSetInterest(listing.id)} isPending={updateListing.isPending} />
                         </div>
 
                         {/* Property type */}
