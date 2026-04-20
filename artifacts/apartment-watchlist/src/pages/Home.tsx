@@ -858,7 +858,7 @@ export default function Home() {
                     <SortableHeader label="Specs" field="bedrooms" sortBy={sortBy} sortDir={sortDir} onSort={onSort} />
                   </TableHead>
                   <TableHead className="w-24">
-                    <SortableHeader label="Sqft" field="squareFeet" sortBy={sortBy} sortDir={sortDir} onSort={onSort} />
+                    <SortableHeader label="Net Area" field="squareFeet" sortBy={sortBy} sortDir={sortDir} onSort={onSort} />
                   </TableHead>
                   <TableHead className="w-28">Type</TableHead>
                   <TableHead className="w-32">Borough</TableHead>
@@ -1015,9 +1015,14 @@ export default function Home() {
                           {fmt(listing.bedrooms)} bd · {fmt(listing.bathrooms)} ba
                         </TableCell>
 
-                        {/* Sqft */}
-                        <TableCell className="text-muted-foreground tabular-nums">
-                          {listing.squareFeet ? `${listing.squareFeet}` : "—"}
+                        {/* Net Area */}
+                        <TableCell className="text-muted-foreground tabular-nums text-xs leading-tight">
+                          {listing.squareFeet ? (
+                            <>
+                              <span className="block">{listing.squareFeet} ft²</span>
+                              <span className="block text-muted-foreground/60">{Math.round(Number(listing.squareFeet) * 0.0929)} m²</span>
+                            </>
+                          ) : "—"}
                         </TableCell>
 
                         {/* Type */}
@@ -1126,7 +1131,7 @@ export default function Home() {
                 {([
                   { label: "Price", field: "currentPrice", defaultDir: "asc" },
                   { label: "Beds", field: "bedrooms", defaultDir: "desc" },
-                  { label: "Sqft", field: "squareFeet", defaultDir: "desc" },
+                  { label: "Net Area", field: "squareFeet", defaultDir: "desc" },
                   { label: "Interest", field: "interestLevel", defaultDir: "desc" },
                   { label: "Metro", field: "walkingMinutes", defaultDir: "asc" },
                   { label: "Fees", field: "condoFees", defaultDir: "asc" },
@@ -1285,6 +1290,7 @@ export default function Home() {
                               <Maximize2 className="w-3.5 h-3.5 flex-shrink-0" />
                               <span className="font-semibold text-foreground tabular-nums">{listing.squareFeet}</span>
                               <span className="text-xs">ft²</span>
+                              <span className="text-xs text-muted-foreground/60">/ {Math.round(Number(listing.squareFeet) * 0.0929)} m²</span>
                             </span>
                           )}
                           {listing.parkingInfo && (
