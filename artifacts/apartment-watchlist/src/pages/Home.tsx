@@ -853,7 +853,6 @@ export default function Home() {
                   <TableHead className="w-28">
                     <SortableHeader label="Price" field="currentPrice" sortBy={sortBy} sortDir={sortDir} onSort={onSort} />
                   </TableHead>
-                  <TableHead className="w-32">Price History</TableHead>
                   <TableHead className="w-28">
                     <SortableHeader label="Specs" field="bedrooms" sortBy={sortBy} sortDir={sortDir} onSort={onSort} />
                   </TableHead>
@@ -871,6 +870,7 @@ export default function Home() {
                   </TableHead>
                   <TableHead className="w-24">Fees</TableHead>
                   <TableHead className="w-24">Tax</TableHead>
+                  <TableHead className="w-32">Price History</TableHead>
                   <TableHead className="w-10 text-center">Notes</TableHead>
                   <TableHead className="w-28 text-left">Last Checked</TableHead>
                   <TableHead className="w-8"></TableHead>
@@ -997,19 +997,6 @@ export default function Home() {
                           <span className="font-semibold tabular-nums">{fmtPrice(listing.currentPrice)}</span>
                         </TableCell>
 
-                        {/* Price History (60d) */}
-                        <TableCell>
-                          {pcd ? (
-                            <div className={`flex items-center gap-0.5 font-medium ${pcd.isDown ? "text-emerald-400" : "text-red-400"}`}>
-                              {pcd.isDown ? <ArrowDown className="w-3 h-3 flex-shrink-0" /> : <ArrowUp className="w-3 h-3 flex-shrink-0" />}
-                              <span>{pcd.label}</span>
-                              <span className="text-muted-foreground font-normal ml-1">· {pcd.date}</span>
-                            </div>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                        </TableCell>
-
                         {/* Specs */}
                         <TableCell className="text-muted-foreground">
                           {fmt(listing.bedrooms)} bd · {fmt(listing.bathrooms)} ba
@@ -1066,6 +1053,19 @@ export default function Home() {
                             {toMonthly(listing.taxes)}
                             {!!listing.taxes && parseMonthly(listing.taxes) > 450 && <AlertCircle className="w-3 h-3 shrink-0" />}
                           </span>
+                        </TableCell>
+
+                        {/* Price History (60d) */}
+                        <TableCell>
+                          {pcd ? (
+                            <div className={`flex items-center gap-0.5 font-medium ${pcd.isDown ? "text-emerald-400" : "text-red-400"}`}>
+                              {pcd.isDown ? <ArrowDown className="w-3 h-3 flex-shrink-0" /> : <ArrowUp className="w-3 h-3 flex-shrink-0" />}
+                              <span>{pcd.label}</span>
+                              <span className="text-muted-foreground font-normal ml-1">· {pcd.date}</span>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
                         </TableCell>
 
                         {/* Notes + actions */}
