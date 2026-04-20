@@ -217,7 +217,19 @@ async function createNotification(listingId: number, type: string, message: stri
   }
 }
 
-export async function checkAllListings(): Promise<{ checked: number; totalChanges: number }> {
+export interface CheckAllResult {
+  checked: number;
+  totalChanges: number;
+  changes: Array<{
+    address: string | null;
+    changeType: string;
+    fieldName: string;
+    oldValue: string | null;
+    newValue: string | null;
+  }>;
+}
+
+export async function checkAllListings(): Promise<CheckAllResult> {
   // Load notification preferences once for the entire batch run
   let prefs: { notifyOnPriceDrop: boolean; notifyOnStatusChange: boolean; notifyOnUnavailable: boolean };
   try {
@@ -239,12 +251,23 @@ export async function checkAllListings(): Promise<{ checked: number; totalChange
     .where(and(eq(listingsTable.hidden, false), ne(listingsTable.listingStatus, "unavailable")));
 
   let totalChanges = 0;
+  const allChanges: CheckAllResult["changes"] = [];
+
   for (const listing of listings) {
     const result = await checkListing(listing.id, prefs);
     totalChanges += result.changesDetected;
+    for (const c of result.changes) {
+      allChanges.push({
+        address: listing.address,
+        changeType: c.changeType,
+        fieldName: c.fieldName,
+        oldValue: c.oldValue,
+        newValue: c.newValue,
+      });
+    }
     // Small delay between requests to be polite to servers
     await new Promise((r) => setTimeout(r, 500));
   }
 
-  return { checked: listings.length, totalChanges };
+  return { checked: listings.length, totalChanges, changes: allChanges };
 }

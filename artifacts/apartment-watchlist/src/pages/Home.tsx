@@ -520,7 +520,29 @@ export default function Home() {
   const checkAll = useCheckAllListings({
     mutation: {
       onSuccess: (data) => {
-        toast({ title: "Refresh complete", description: `Checked ${data.checked} listings. Found ${data.totalChanges} changes.` });
+        if (data.totalChanges === 0) {
+          toast({ title: "All up to date", description: `Checked ${data.checked} listings, no changes found.` });
+        } else {
+          const fmtAddr = (addr: string | null) => {
+            if (!addr) return "Unknown";
+            const m = addr.match(/^(\d+[^,]*,[^,]+)/);
+            return m ? m[1].trim() : addr.split(",")[0].trim();
+          };
+          const fmtVal = (v: string | null) => {
+            if (!v) return "—";
+            const n = parseFloat(v);
+            return isNaN(n) ? v : `$${n.toLocaleString("en-CA")}`;
+          };
+          const lines = (data.changes ?? []).slice(0, 4).map((c) => {
+            const addr = fmtAddr(c.address);
+            if (c.changeType === "price_drop") return `↓ ${addr}: ${fmtVal(c.oldValue)} → ${fmtVal(c.newValue)}`;
+            if (c.changeType === "price_increase") return `↑ ${addr}: ${fmtVal(c.oldValue)} → ${fmtVal(c.newValue)}`;
+            if (c.changeType === "status_change") return `${addr}: ${c.oldValue} → ${c.newValue}`;
+            return `${addr}: ${c.fieldName} changed`;
+          });
+          const extra = data.totalChanges > 4 ? `\n+${data.totalChanges - 4} more` : "";
+          toast({ title: `${data.totalChanges} change${data.totalChanges !== 1 ? "s" : ""} found`, description: lines.join("\n") + extra });
+        }
         queryClient.invalidateQueries({ queryKey: getGetListingsQueryKey() });
         queryClient.invalidateQueries({ queryKey: getGetDashboardSummaryQueryKey() });
         queryClient.invalidateQueries({ queryKey: ["recent-price-changes"] });

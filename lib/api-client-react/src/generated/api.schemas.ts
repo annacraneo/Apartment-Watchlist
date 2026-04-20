@@ -149,9 +149,18 @@ export interface CheckListingResponse {
   changes: ListingChange[];
 }
 
+export interface CheckAllChange {
+  address: string | null;
+  changeType: string;
+  fieldName: string;
+  oldValue: string | null;
+  newValue: string | null;
+}
+
 export interface CheckAllResponse {
   checked: number;
   totalChanges: number;
+  changes: CheckAllChange[];
 }
 
 export interface ListingSnapshot {

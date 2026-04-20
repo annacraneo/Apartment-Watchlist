@@ -90,9 +90,15 @@ router.get("/listings", async (req, res): Promise<void> => {
     squareFeet: listingsTable.squareFeet,
   };
 
-  const sortCol: Column = validSortFields[sortBy || "updatedAt"] ?? listingsTable.updatedAt;
-  // visitNext listings always float to the top, then sort by the chosen column
-  query = query.orderBy(desc(listingsTable.visitNext), sortDir === "asc" ? asc(sortCol) : desc(sortCol));
+  // interestLevel needs a custom CASE order (high=3 > medium=2 > low=1 > null=0)
+  if (sortBy === "interestLevel") {
+    const interestOrder = sql`CASE ${listingsTable.interestLevel} WHEN 'high' THEN 3 WHEN 'medium' THEN 2 WHEN 'low' THEN 1 ELSE 0 END`;
+    query = query.orderBy(desc(listingsTable.visitNext), sortDir === "asc" ? asc(interestOrder) : desc(interestOrder));
+  } else {
+    const sortCol: Column = validSortFields[sortBy || "updatedAt"] ?? listingsTable.updatedAt;
+    // visitNext listings always float to the top, then sort by the chosen column
+    query = query.orderBy(desc(listingsTable.visitNext), sortDir === "asc" ? asc(sortCol) : desc(sortCol));
+  }
 
   const listings = await query;
   res.json(listings);
