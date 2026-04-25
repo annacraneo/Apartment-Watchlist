@@ -97,6 +97,15 @@ router.get("/listings", async (req, res): Promise<void> => {
   } else if (sortBy === "squareFeet") {
     const squareFeetNumeric = sql`CAST(${listingsTable.squareFeet} AS NUMERIC)`;
     query = query.orderBy(desc(listingsTable.visitNext), sortDir === "asc" ? asc(squareFeetNumeric) : desc(squareFeetNumeric));
+  } else if (sortBy === "currentPrice") {
+    const currentPriceNumeric = sql`CAST(${listingsTable.currentPrice} AS NUMERIC)`;
+    query = query.orderBy(desc(listingsTable.visitNext), sortDir === "asc" ? asc(currentPriceNumeric) : desc(currentPriceNumeric));
+  } else if (sortBy === "priceDelta") {
+    const priceDeltaNumeric = sql`CAST(${listingsTable.priceDelta} AS NUMERIC)`;
+    query = query.orderBy(desc(listingsTable.visitNext), sortDir === "asc" ? asc(priceDeltaNumeric) : desc(priceDeltaNumeric));
+  } else if (sortBy === "bedrooms") {
+    const bedroomsNumeric = sql`CAST(${listingsTable.bedrooms} AS NUMERIC)`;
+    query = query.orderBy(desc(listingsTable.visitNext), sortDir === "asc" ? asc(bedroomsNumeric) : desc(bedroomsNumeric));
   } else {
     const sortCol: Column = validSortFields[sortBy || "updatedAt"] ?? listingsTable.updatedAt;
     // visitNext listings always float to the top, then sort by the chosen column
