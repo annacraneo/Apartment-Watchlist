@@ -79,6 +79,8 @@ export interface Listing {
   tags?: string | null;
   hidden: boolean;
   favorite: boolean;
+  visitNext: boolean;
+  visited: boolean;
   /** @nullable */
   lastCheckedAt?: string | null;
   firstSavedAt: string;

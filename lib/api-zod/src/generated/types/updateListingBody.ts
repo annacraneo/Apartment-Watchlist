@@ -19,4 +19,8 @@ export interface UpdateListingBody {
   hidden?: boolean | null;
   /** @nullable */
   favorite?: boolean | null;
+  /** @nullable */
+  visitNext?: boolean | null;
+  /** @nullable */
+  visited?: boolean | null;
 }
