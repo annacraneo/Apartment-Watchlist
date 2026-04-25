@@ -36,6 +36,7 @@ import {
   MoreVertical,
   Flag,
   AlertCircle,
+  Eye,
 } from "lucide-react";
 import { format, differenceInMinutes, differenceInHours, differenceInDays } from "date-fns";
 
@@ -429,6 +430,7 @@ export default function Home() {
   const [parkingInfos, setParkingInfos] = useState<string[]>([]);
   const [metros, setMetros] = useState<string[]>([]);
   const [visitNextOnly, setVisitNextOnly] = useState(false);
+  const [visitedOnly, setVisitedOnly] = useState(false);
   const [sortBy, setSortBy] = useState("updatedAt");
   const [sortDir, setSortDir] = useState("desc");
   const [page, setPage] = useState(1);
@@ -451,7 +453,7 @@ export default function Home() {
     return () => clearTimeout(timer);
   }, [search]);
 
-  React.useEffect(() => { setPage(1); }, [debouncedSearch, status, interestLevel, boroughs, parkingInfos, condoTypes, metros, visitNextOnly, pageSize]);
+  React.useEffect(() => { setPage(1); }, [debouncedSearch, status, interestLevel, boroughs, parkingInfos, condoTypes, metros, visitNextOnly, visitedOnly, pageSize]);
 
   const queryParams: GetListingsParams = {
     search: debouncedSearch || undefined,
@@ -492,6 +494,7 @@ export default function Home() {
       if (condoTypes.length > 0 && !condoTypes.includes(l.propertyType || "")) return false;
       if (metros.length > 0 && !metros.includes(l.nearestMetro || "")) return false;
       if (visitNextOnly && !l.visitNext) return false;
+      if (visitedOnly && !l.visited) return false;
       if (status === "new" && !isNewListing(l.firstSavedAt)) return false;
       return true;
     });
@@ -506,7 +509,7 @@ export default function Home() {
       });
     }
     return filtered;
-  }, [allListings, boroughs, parkingInfos, condoTypes, metros, visitNextOnly, sortBy, sortDir]);
+  }, [allListings, boroughs, parkingInfos, condoTypes, metros, visitNextOnly, visitedOnly, sortBy, sortDir]);
 
   const totalCount = allListings?.length ?? 0;
   const filteredCount = listings.length;
@@ -614,8 +617,8 @@ export default function Home() {
     <div className="flex flex-col items-center justify-center py-20 text-muted-foreground gap-3">
       <MapPin className="w-10 h-10 opacity-30" />
       <p className="text-sm font-medium">No listings found</p>
-      {(debouncedSearch || status !== "all" || interestLevel !== "all" || boroughs.length > 0 || parkingInfos.length > 0 || condoTypes.length > 0 || metros.length > 0 || visitNextOnly) && (
-        <Button variant="outline" size="sm" onClick={() => { setSearch(""); setStatus("all"); setInterestLevel("all"); setBoroughs([]); setParkingInfos([]); setCondoTypes([]); setMetros([]); setVisitNextOnly(false); }}>
+      {(debouncedSearch || status !== "all" || interestLevel !== "all" || boroughs.length > 0 || parkingInfos.length > 0 || condoTypes.length > 0 || metros.length > 0 || visitNextOnly || visitedOnly) && (
+        <Button variant="outline" size="sm" onClick={() => { setSearch(""); setStatus("all"); setInterestLevel("all"); setBoroughs([]); setParkingInfos([]); setCondoTypes([]); setMetros([]); setVisitNextOnly(false); setVisitedOnly(false); }}>
           Clear filters
         </Button>
       )}
@@ -781,6 +784,14 @@ export default function Home() {
             Visit Next
           </button>
 
+          <button
+            onClick={() => setVisitedOnly((v) => !v)}
+            className={`h-7 px-3 text-xs rounded-md border flex items-center gap-1.5 transition-colors ${visitedOnly ? "bg-emerald-600 text-white border-emerald-600" : "bg-background text-muted-foreground hover:bg-accent"}`}
+          >
+            <Eye className="w-3 h-3" />
+            Visited
+          </button>
+
           <Select value={`${sortBy}-${sortDir}`} onValueChange={(v) => { const [by, dir] = v.split("-"); setSortBy(by); setSortDir(dir); }}>
             <SelectTrigger className="w-[170px] h-7 text-xs" data-testid="filter-sort">
               <SelectValue placeholder="Sort By" />
@@ -836,17 +847,29 @@ export default function Home() {
                       aria-label="Select all on page"
                     />
                   </TableHead>
-                  <TableHead className="w-8 px-1">
-                    <TooltipProvider delayDuration={300}>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Flag className="w-3.5 h-3.5 text-muted-foreground/40 mx-auto" />
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="max-w-[200px] text-center">
-                          Visit Next — flag a listing you want to visit soon. Flagged listings always appear at the top.
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
+                  <TableHead className="w-16 px-1">
+                    <div className="flex items-center justify-center gap-1">
+                      <TooltipProvider delayDuration={300}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Flag className="w-3.5 h-3.5 text-muted-foreground/40" />
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-[200px] text-center">
+                            Visit Next — flag a listing you want to visit soon. Flagged listings always appear at the top.
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                      <TooltipProvider delayDuration={300}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Eye className="w-3.5 h-3.5 text-muted-foreground/40" />
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-[200px] text-center">
+                            Visited — mark a listing you have already visited in person.
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
                   </TableHead>
                   <TableHead className="w-32"></TableHead>
                   <TableHead className="min-w-[220px]">Address</TableHead>
@@ -915,25 +938,44 @@ export default function Home() {
                           />
                         </TableCell>
 
-                        {/* Visit Next flag */}
+                        {/* Visit Next + Visited flags */}
                         <TableCell className="px-1 text-center">
-                          <TooltipProvider delayDuration={300}>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className={`h-6 w-6 transition-colors ${listing.visitNext ? "text-violet-500" : "text-muted-foreground/25 hover:text-violet-500 opacity-0 group-hover:opacity-100"}`}
-                                  onClick={() => updateListing.mutate({ id: listing.id, data: { visitNext: !listing.visitNext } })}
-                                >
-                                  <Flag className={`w-3 h-3 ${listing.visitNext ? "fill-violet-500/50" : ""}`} />
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent side="right">
-                                {listing.visitNext ? "Remove from Visit Next" : "Mark as Visit Next"}
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
+                          <div className="flex items-center justify-center gap-0.5">
+                            <TooltipProvider delayDuration={300}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className={`h-6 w-6 transition-colors ${listing.visitNext ? "text-violet-500" : "text-muted-foreground/25 hover:text-violet-500 opacity-0 group-hover:opacity-100"}`}
+                                    onClick={() => updateListing.mutate({ id: listing.id, data: { visitNext: !listing.visitNext } })}
+                                  >
+                                    <Flag className={`w-3 h-3 ${listing.visitNext ? "fill-violet-500/50" : ""}`} />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent side="right">
+                                  {listing.visitNext ? "Remove from Visit Next" : "Mark as Visit Next"}
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                            <TooltipProvider delayDuration={300}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className={`h-6 w-6 transition-colors ${listing.visited ? "text-emerald-500" : "text-muted-foreground/25 hover:text-emerald-500 opacity-0 group-hover:opacity-100"}`}
+                                    onClick={() => updateListing.mutate({ id: listing.id, data: { visited: !listing.visited } })}
+                                  >
+                                    <Eye className={`w-3 h-3 ${listing.visited ? "fill-emerald-500/30" : ""}`} />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent side="right">
+                                  {listing.visited ? "Mark as not visited" : "Mark as visited"}
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </div>
                         </TableCell>
 
                         {/* Thumbnail */}
@@ -1340,6 +1382,16 @@ export default function Home() {
                       <div className="px-4 py-2.5 border-t border-border/50 flex items-center justify-between bg-muted/10">
                         <span className="text-[11px] text-muted-foreground">{timeAgo(listing.updatedAt)}</span>
                         <div className="flex items-center gap-0.5">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className={`h-7 w-7 transition-colors ${listing.visited ? "text-emerald-500" : "text-muted-foreground/40 hover:text-emerald-500 opacity-0 group-hover:opacity-100 data-[visited=true]:opacity-100"}`}
+                            data-visited={listing.visited}
+                            title={listing.visited ? "Mark as not visited" : "Mark as visited"}
+                            onClick={() => updateListing.mutate({ id: listing.id, data: { visited: !listing.visited } })}
+                          >
+                            <Eye className={`w-3.5 h-3.5 ${listing.visited ? "fill-emerald-500/20" : ""}`} />
+                          </Button>
                           <Button
                             variant="ghost"
                             size="icon"

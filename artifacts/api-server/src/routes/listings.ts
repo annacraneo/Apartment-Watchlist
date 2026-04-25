@@ -94,6 +94,9 @@ router.get("/listings", async (req, res): Promise<void> => {
   if (sortBy === "interestLevel") {
     const interestOrder = sql`CASE ${listingsTable.interestLevel} WHEN 'high' THEN 3 WHEN 'medium' THEN 2 WHEN 'low' THEN 1 ELSE 0 END`;
     query = query.orderBy(desc(listingsTable.visitNext), sortDir === "asc" ? asc(interestOrder) : desc(interestOrder));
+  } else if (sortBy === "squareFeet") {
+    const squareFeetNumeric = sql`CAST(${listingsTable.squareFeet} AS NUMERIC)`;
+    query = query.orderBy(desc(listingsTable.visitNext), sortDir === "asc" ? asc(squareFeetNumeric) : desc(squareFeetNumeric));
   } else {
     const sortCol: Column = validSortFields[sortBy || "updatedAt"] ?? listingsTable.updatedAt;
     // visitNext listings always float to the top, then sort by the chosen column
@@ -335,6 +338,7 @@ router.patch("/listings/:id", async (req, res): Promise<void> => {
   if (b.hidden !== undefined) updateData.hidden = b.hidden;
   if (b.favorite !== undefined) updateData.favorite = b.favorite;
   if (b.visitNext !== undefined) updateData.visitNext = b.visitNext;
+  if (b.visited !== undefined) updateData.visited = b.visited;
 
   const [listing] = await db
     .update(listingsTable)
