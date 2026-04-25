@@ -921,7 +921,7 @@ export default function Home() {
                     return (
                       <TableRow
                         key={listing.id}
-                        className={`group ${listing.visitNext ? "bg-violet-500/10 hover:bg-violet-500/15" : ""}`}
+                        className={`group ${listing.visitNext ? "bg-violet-500/10 hover:bg-violet-500/15" : listing.visited ? "bg-emerald-500/10 hover:bg-emerald-500/15" : ""}`}
                         data-testid={`row-listing-${listing.id}`}
                       >
                         <TableCell className="px-2">
@@ -1213,6 +1213,8 @@ export default function Home() {
                       className={`group flex flex-col rounded-2xl border overflow-hidden transition-all duration-200 hover:shadow-xl hover:shadow-black/30 hover:-translate-y-0.5 ${
                         listing.visitNext
                           ? "bg-violet-500/10 border-violet-500/50 ring-1 ring-violet-500/30"
+                          : listing.visited
+                          ? "bg-emerald-500/10 border-emerald-500/50 ring-1 ring-emerald-500/30"
                           : isSelected
                           ? "bg-card border-primary/50 ring-1 ring-primary/30"
                           : "bg-card border-border hover:border-border/80"
