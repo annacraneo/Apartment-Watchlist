@@ -19,7 +19,13 @@ export const HealthCheckResponse = zod.object({
  */
 export const GetListingsQueryParams = zod.object({
   source: zod.coerce.string().nullish(),
+  listingType: zod
+    .union([zod.literal("buy"), zod.literal("rent"), zod.literal(null)])
+    .nullish(),
   status: zod.coerce.string().nullish(),
+  maxRent: zod.coerce.string().nullish(),
+  petsAllowed: zod.coerce.string().nullish(),
+  availableBy: zod.coerce.string().nullish(),
   interestLevel: zod.coerce.string().nullish(),
   hasPriceDrop: zod.coerce.string().nullish(),
   archived: zod.coerce.string().nullish(),
@@ -32,6 +38,7 @@ export const GetListingsResponseItem = zod.object({
   id: zod.number(),
   listingUrl: zod.string(),
   sourceSite: zod.string().nullish(),
+  listingType: zod.enum(["buy", "rent"]),
   externalListingId: zod.string().nullish(),
   title: zod.string().nullish(),
   address: zod.string().nullish(),
@@ -53,7 +60,19 @@ export const GetListingsResponseItem = zod.object({
   yearBuilt: zod.string().nullish(),
   condoFees: zod.string().nullish(),
   taxes: zod.string().nullish(),
+  furnishedStatus: zod.string().nullish(),
+  leaseTerm: zod.string().nullish(),
+  availableFrom: zod.string().nullish(),
+  petsAllowedInfo: zod.string().nullish(),
+  appliancesIncluded: zod.string().nullish(),
+  airConditioning: zod.string().nullish(),
+  extractionConfidence: zod.number().nullish(),
+  extractionWarnings: zod.string().nullish(),
+  rawContent: zod.string().nullish(),
+  lockedFields: zod.string().optional(),
   parkingInfo: zod.string().nullish(),
+  nearestMetro: zod.string().nullish(),
+  walkingMinutes: zod.number().nullish(),
   listingStatus: zod.string().nullish(),
   daysOnMarket: zod.string().nullish(),
   description: zod.string().nullish(),
@@ -73,8 +92,6 @@ export const GetListingsResponseItem = zod.object({
   firstSavedAt: zod.string(),
   updatedAt: zod.string(),
   rawData: zod.string().nullish(),
-  nearestMetro: zod.string().nullish(),
-  walkingMinutes: zod.number().nullish(),
 });
 export const GetListingsResponse = zod.array(GetListingsResponseItem);
 
@@ -83,6 +100,9 @@ export const GetListingsResponse = zod.array(GetListingsResponseItem);
  */
 export const CreateListingBody = zod.object({
   listingUrl: zod.string(),
+  listingType: zod
+    .union([zod.literal("buy"), zod.literal("rent"), zod.literal(null)])
+    .nullish(),
   notes: zod.string().nullish(),
   personalRating: zod.number().nullish(),
   tags: zod.string().nullish(),
@@ -95,6 +115,26 @@ export const CreateListingBody = zod.object({
 export const CheckAllListingsResponse = zod.object({
   checked: zod.number(),
   totalChanges: zod.number(),
+  changes: zod.array(
+    zod.object({
+      address: zod.string().nullish(),
+      changeType: zod.string(),
+      fieldName: zod.string(),
+      oldValue: zod.string().nullish(),
+      newValue: zod.string().nullish(),
+    }),
+  ),
+});
+
+/**
+ * @summary Delete multiple listings by ID
+ */
+export const BulkDeleteListingsBody = zod.object({
+  ids: zod.array(zod.number()),
+});
+
+export const BulkDeleteListingsResponse = zod.object({
+  deleted: zod.number(),
 });
 
 /**
@@ -108,6 +148,7 @@ export const GetListingResponse = zod.object({
   id: zod.number(),
   listingUrl: zod.string(),
   sourceSite: zod.string().nullish(),
+  listingType: zod.enum(["buy", "rent"]),
   externalListingId: zod.string().nullish(),
   title: zod.string().nullish(),
   address: zod.string().nullish(),
@@ -129,7 +170,19 @@ export const GetListingResponse = zod.object({
   yearBuilt: zod.string().nullish(),
   condoFees: zod.string().nullish(),
   taxes: zod.string().nullish(),
+  furnishedStatus: zod.string().nullish(),
+  leaseTerm: zod.string().nullish(),
+  availableFrom: zod.string().nullish(),
+  petsAllowedInfo: zod.string().nullish(),
+  appliancesIncluded: zod.string().nullish(),
+  airConditioning: zod.string().nullish(),
+  extractionConfidence: zod.number().nullish(),
+  extractionWarnings: zod.string().nullish(),
+  rawContent: zod.string().nullish(),
+  lockedFields: zod.string().optional(),
   parkingInfo: zod.string().nullish(),
+  nearestMetro: zod.string().nullish(),
+  walkingMinutes: zod.number().nullish(),
   listingStatus: zod.string().nullish(),
   daysOnMarket: zod.string().nullish(),
   description: zod.string().nullish(),
@@ -143,6 +196,8 @@ export const GetListingResponse = zod.object({
   tags: zod.string().nullish(),
   hidden: zod.boolean(),
   favorite: zod.boolean(),
+  visitNext: zod.boolean(),
+  visited: zod.boolean(),
   lastCheckedAt: zod.string().nullish(),
   firstSavedAt: zod.string(),
   updatedAt: zod.string(),
@@ -165,12 +220,29 @@ export const UpdateListingBody = zod.object({
   favorite: zod.boolean().nullish(),
   visitNext: zod.boolean().nullish(),
   visited: zod.boolean().nullish(),
+  bedrooms: zod.number().nullish(),
+  bathrooms: zod.number().nullish(),
+  squareFeet: zod.number().nullish(),
+  furnishedStatus: zod.string().nullish(),
+  leaseTerm: zod.string().nullish(),
+  availableFrom: zod.string().nullish(),
+  petsAllowedInfo: zod.string().nullish(),
+  appliancesIncluded: zod.string().nullish(),
+  airConditioning: zod.string().nullish(),
+  parkingInfo: zod.string().nullish(),
+  floor: zod.string().nullish(),
+  nearestMetro: zod.string().nullish(),
+  currentPrice: zod.string().nullish(),
+  address: zod.string().nullish(),
+  neighborhood: zod.string().nullish(),
+  lockedFields: zod.array(zod.string()).nullish(),
 });
 
 export const UpdateListingResponse = zod.object({
   id: zod.number(),
   listingUrl: zod.string(),
   sourceSite: zod.string().nullish(),
+  listingType: zod.enum(["buy", "rent"]),
   externalListingId: zod.string().nullish(),
   title: zod.string().nullish(),
   address: zod.string().nullish(),
@@ -192,7 +264,19 @@ export const UpdateListingResponse = zod.object({
   yearBuilt: zod.string().nullish(),
   condoFees: zod.string().nullish(),
   taxes: zod.string().nullish(),
+  furnishedStatus: zod.string().nullish(),
+  leaseTerm: zod.string().nullish(),
+  availableFrom: zod.string().nullish(),
+  petsAllowedInfo: zod.string().nullish(),
+  appliancesIncluded: zod.string().nullish(),
+  airConditioning: zod.string().nullish(),
+  extractionConfidence: zod.number().nullish(),
+  extractionWarnings: zod.string().nullish(),
+  rawContent: zod.string().nullish(),
+  lockedFields: zod.string().optional(),
   parkingInfo: zod.string().nullish(),
+  nearestMetro: zod.string().nullish(),
+  walkingMinutes: zod.number().nullish(),
   listingStatus: zod.string().nullish(),
   daysOnMarket: zod.string().nullish(),
   description: zod.string().nullish(),
@@ -233,6 +317,7 @@ export const CheckListingResponse = zod.object({
     id: zod.number(),
     listingUrl: zod.string(),
     sourceSite: zod.string().nullish(),
+    listingType: zod.enum(["buy", "rent"]),
     externalListingId: zod.string().nullish(),
     title: zod.string().nullish(),
     address: zod.string().nullish(),
@@ -254,7 +339,19 @@ export const CheckListingResponse = zod.object({
     yearBuilt: zod.string().nullish(),
     condoFees: zod.string().nullish(),
     taxes: zod.string().nullish(),
-  parkingInfo: zod.string().nullish(),
+    furnishedStatus: zod.string().nullish(),
+    leaseTerm: zod.string().nullish(),
+    availableFrom: zod.string().nullish(),
+    petsAllowedInfo: zod.string().nullish(),
+    appliancesIncluded: zod.string().nullish(),
+    airConditioning: zod.string().nullish(),
+    extractionConfidence: zod.number().nullish(),
+    extractionWarnings: zod.string().nullish(),
+    rawContent: zod.string().nullish(),
+    lockedFields: zod.string().optional(),
+    parkingInfo: zod.string().nullish(),
+    nearestMetro: zod.string().nullish(),
+    walkingMinutes: zod.number().nullish(),
     listingStatus: zod.string().nullish(),
     daysOnMarket: zod.string().nullish(),
     description: zod.string().nullish(),
@@ -268,6 +365,8 @@ export const CheckListingResponse = zod.object({
     tags: zod.string().nullish(),
     hidden: zod.boolean(),
     favorite: zod.boolean(),
+    visitNext: zod.boolean(),
+    visited: zod.boolean(),
     lastCheckedAt: zod.string().nullish(),
     firstSavedAt: zod.string(),
     updatedAt: zod.string(),
@@ -387,6 +486,8 @@ export const GetSettingsResponse = zod.object({
   notifyOnPriceDrop: zod.boolean(),
   notifyOnStatusChange: zod.boolean(),
   notifyOnUnavailable: zod.boolean(),
+  llmProvider: zod.enum(["disabled", "ollama", "openai_compatible"]),
+  llmModel: zod.string().nullish(),
 });
 
 /**
@@ -401,8 +502,10 @@ export const UpdateSettingsBody = zod.object({
   centrisExtractionMode: zod.string().nullish(),
   realtorExtractionMode: zod.string().nullish(),
   notifyOnPriceDrop: zod.boolean(),
-  notifyOnStatusChange: zod.boolean().optional(),
+  notifyOnStatusChange: zod.boolean(),
   notifyOnUnavailable: zod.boolean(),
+  llmProvider: zod.enum(["disabled", "ollama", "openai_compatible"]),
+  llmModel: zod.string().nullish(),
 });
 
 export const UpdateSettingsResponse = zod.object({
@@ -416,6 +519,8 @@ export const UpdateSettingsResponse = zod.object({
   notifyOnPriceDrop: zod.boolean(),
   notifyOnStatusChange: zod.boolean(),
   notifyOnUnavailable: zod.boolean(),
+  llmProvider: zod.enum(["disabled", "ollama", "openai_compatible"]),
+  llmModel: zod.string().nullish(),
 });
 
 /**
@@ -450,13 +555,4 @@ export const GetDashboardSummaryResponse = zod.object({
       changeType: zod.string(),
     }),
   ),
-});
-
-
-export const BulkDeleteListingsBody = zod.object({
-  ids: zod.array(zod.number()).min(1),
-});
-
-export const BulkDeleteListingsResponse = zod.object({
-  deleted: zod.number(),
 });

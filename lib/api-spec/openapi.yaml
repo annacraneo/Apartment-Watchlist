@@ -45,7 +45,24 @@ paths:
           in: query
           schema:
             type: ["string", "null"]
+        - name: listingType
+          in: query
+          schema:
+            type: ["string", "null"]
+            enum: ["buy", "rent", null]
         - name: status
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: maxRent
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: petsAllowed
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: availableBy
           in: query
           schema:
             type: ["string", "null"]
@@ -125,6 +142,30 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CheckAllResponse"
+
+  /listings/bulk-delete:
+    post:
+      operationId: bulkDeleteListings
+      tags: [listings]
+      summary: Delete multiple listings by ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkDeleteListingsBody"
+      responses:
+        "200":
+          description: Bulk delete result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deleted:
+                    type: integer
+                required:
+                  - deleted
 
   /listings/{id}:
     get:
@@ -415,6 +456,9 @@ components:
           type: string
         sourceSite:
           type: ["string", "null"]
+        listingType:
+          type: string
+          enum: ["buy", "rent"]
         externalListingId:
           type: ["string", "null"]
         title:
@@ -457,6 +501,32 @@ components:
           type: ["string", "null"]
         taxes:
           type: ["string", "null"]
+        furnishedStatus:
+          type: ["string", "null"]
+        leaseTerm:
+          type: ["string", "null"]
+        availableFrom:
+          type: ["string", "null"]
+        petsAllowedInfo:
+          type: ["string", "null"]
+        appliancesIncluded:
+          type: ["string", "null"]
+        airConditioning:
+          type: ["string", "null"]
+        extractionConfidence:
+          type: ["integer", "null"]
+        extractionWarnings:
+          type: ["string", "null"]
+        rawContent:
+          type: ["string", "null"]
+        lockedFields:
+          type: string
+        parkingInfo:
+          type: ["string", "null"]
+        nearestMetro:
+          type: ["string", "null"]
+        walkingMinutes:
+          type: ["integer", "null"]
         listingStatus:
           type: ["string", "null"]
         daysOnMarket:
@@ -483,6 +553,10 @@ components:
           type: boolean
         favorite:
           type: boolean
+        visitNext:
+          type: boolean
+        visited:
+          type: boolean
         lastCheckedAt:
           type: ["string", "null"]
         firstSavedAt:
@@ -494,8 +568,11 @@ components:
       required:
         - id
         - listingUrl
+        - listingType
         - hidden
         - favorite
+        - visitNext
+        - visited
         - firstSavedAt
         - updatedAt
 
@@ -504,6 +581,9 @@ components:
       properties:
         listingUrl:
           type: string
+        listingType:
+          type: ["string", "null"]
+          enum: ["buy", "rent", null]
         notes:
           type: ["string", "null"]
         personalRating:
@@ -530,6 +610,54 @@ components:
           type: ["boolean", "null"]
         favorite:
           type: ["boolean", "null"]
+        visitNext:
+          type: ["boolean", "null"]
+        visited:
+          type: ["boolean", "null"]
+        bedrooms:
+          type: ["integer", "null"]
+        bathrooms:
+          type: ["integer", "null"]
+        squareFeet:
+          type: ["integer", "null"]
+        furnishedStatus:
+          type: ["string", "null"]
+        leaseTerm:
+          type: ["string", "null"]
+        availableFrom:
+          type: ["string", "null"]
+        petsAllowedInfo:
+          type: ["string", "null"]
+        appliancesIncluded:
+          type: ["string", "null"]
+        airConditioning:
+          type: ["string", "null"]
+        parkingInfo:
+          type: ["string", "null"]
+        floor:
+          type: ["string", "null"]
+        nearestMetro:
+          type: ["string", "null"]
+        currentPrice:
+          type: ["string", "null"]
+        address:
+          type: ["string", "null"]
+        neighborhood:
+          type: ["string", "null"]
+        lockedFields:
+          type: ["array", "null"]
+          items:
+            type: string
+
+    BulkDeleteListingsBody:
+      type: object
+      properties:
+        ids:
+          type: array
+          items:
+            type: integer
+      required:
+        - ids
 
     CheckListingResponse:
       type: object
@@ -554,9 +682,28 @@ components:
           type: integer
         totalChanges:
           type: integer
+        changes:
+          type: array
+          items:
+            type: object
+            properties:
+              address:
+                type: ["string", "null"]
+              changeType:
+                type: string
+              fieldName:
+                type: string
+              oldValue:
+                type: ["string", "null"]
+              newValue:
+                type: ["string", "null"]
+            required:
+              - changeType
+              - fieldName
       required:
         - checked
         - totalChanges
+        - changes
 
     ListingChange:
       type: object
@@ -656,12 +803,18 @@ components:
           type: boolean
         notifyOnUnavailable:
           type: boolean
+        llmProvider:
+          type: string
+          enum: [disabled, ollama, openai_compatible]
+        llmModel:
+          type: ["string", "null"]
       required:
         - checkIntervalHours
         - extractionMode
         - notifyOnPriceDrop
         - notifyOnStatusChange
         - notifyOnUnavailable
+        - llmProvider
 
     DashboardSummary:
       type: object

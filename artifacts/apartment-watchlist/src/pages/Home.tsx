@@ -43,6 +43,13 @@ import { format, differenceInMinutes, differenceInHours, differenceInDays } from
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -80,6 +87,7 @@ import {
 
 import { AddListingDialog } from "@/components/AddListingDialog";
 import { StatusBadge } from "@/components/StatusBadge";
+import { RentFilters } from "@/components/RentFilters";
 
 function MultiFilter({
   label,
@@ -149,6 +157,59 @@ function stripBorough(address: string): string {
 function truncateAtSecondComma(address: string): string {
   const parts = address.split(",");
   return parts.slice(0, 2).join(",").trim();
+}
+
+function formatPets(value: string | null | undefined): string {
+  if (!value) return "—";
+  if (value === "cats_and_dogs_allowed" || value === "cats_and_dogs") return "Cats + dogs";
+  if (value === "cats_allowed" || value === "cats_only") return "Cats only";
+  if (value === "pets_allowed" || value === "pet_friendly_unspecified" || value === "all_pets") return "All pets";
+  if (value === "not_allowed" || value === "no_pets") return "No pets";
+  return value;
+}
+
+function formatFurnished(value: string | null | undefined): string {
+  if (!value) return "—";
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "yes" || normalized === "furnished") return "Yes";
+  if (normalized === "no" || normalized === "unfurnished") return "No";
+  return "—";
+}
+
+function formatParking(value: string | null | undefined): string {
+  if (!value) return "—";
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "no" || normalized.includes("no parking") || normalized.includes("without parking")) return "No";
+  if (normalized === "yes" || normalized.includes("parking") || normalized.includes("stationnement")) return "Yes";
+  return "—";
+}
+
+const RENT_BOROUGH_OPTIONS = [
+  "Ahuntsic-Cartierville",
+  "Anjou",
+  "Côte-des-Neiges/Notre-Dame-de-Grâce",
+  "Lachine",
+  "LaSalle",
+  "Le Plateau-Mont-Royal",
+  "Le Sud-Ouest",
+  "L'Île-Bizard/Sainte-Geneviève",
+  "Mercier-Hochelaga-Maisonneuve",
+  "Montréal-Nord",
+  "Outremont",
+  "Pierrefonds-Roxboro",
+  "Rivière-des-Prairies/Pointe-aux-Trembles",
+  "Rosemont/La Petite-Patrie",
+  "Saint-Laurent",
+  "Saint-Léonard",
+  "Verdun/Île-des-Soeurs",
+  "Ville-Marie",
+  "Villeray/Saint-Michel/Parc-Extension",
+] as const;
+
+function parseRentAmount(value: string | null | undefined): number | null {
+  if (!value) return null;
+  const n = Number(value.replace(/[^0-9.]/g, ""));
+  return Number.isFinite(n) ? n : null;
 }
 
 function streetViewUrl(address: string, lat?: string | null, lng?: string | null): string {
@@ -421,6 +482,8 @@ function getPageNumbers(current: number, total: number): (number | "…")[] {
 }
 
 export default function Home() {
+  const [listingType, setListingType] = useState<"buy" | "rent">("rent");
+  const isRentView = listingType === "rent";
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [status, setStatus] = useState<string>("all");
@@ -431,6 +494,10 @@ export default function Home() {
   const [metros, setMetros] = useState<string[]>([]);
   const [visitNextOnly, setVisitNextOnly] = useState(false);
   const [visitedOnly, setVisitedOnly] = useState(false);
+  const [minRent, setMinRent] = useState<number | null>(null);
+  const [maxRent, setMaxRent] = useState<number | null>(null);
+  const [petsAllowed, setPetsAllowed] = useState("all");
+  const [availableBy, setAvailableBy] = useState("");
   const [sortBy, setSortBy] = useState("updatedAt");
   const [sortDir, setSortDir] = useState("desc");
   const [page, setPage] = useState(1);
@@ -444,6 +511,24 @@ export default function Home() {
   const onSort = (field: string, dir: string) => { setSortBy(field); setSortDir(dir); };
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [viewMode, setViewMode] = useState<"table" | "card">("table");
+  const [editingRentId, setEditingRentId] = useState<number | null>(null);
+  const [rentEditValues, setRentEditValues] = useState({
+    currentPrice: "",
+    address: "",
+    neighborhood: "",
+    bedrooms: "",
+    bathrooms: "",
+    squareFeet: "",
+    parkingInfo: "",
+    furnishedStatus: "",
+    availableFrom: "",
+    petsAllowedInfo: "",
+    floor: "",
+    airConditioning: "",
+    appliancesIncluded: "",
+    notes: "",
+  });
+  const [rentEditTouched, setRentEditTouched] = useState<Set<string>>(new Set());
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -453,9 +538,11 @@ export default function Home() {
     return () => clearTimeout(timer);
   }, [search]);
 
-  React.useEffect(() => { setPage(1); }, [debouncedSearch, status, interestLevel, boroughs, parkingInfos, condoTypes, metros, visitNextOnly, visitedOnly, pageSize]);
+  React.useEffect(() => { setPage(1); }, [listingType, debouncedSearch, status, interestLevel, boroughs, parkingInfos, condoTypes, metros, visitNextOnly, visitedOnly, minRent, maxRent, petsAllowed, availableBy, pageSize]);
 
   const queryParams: GetListingsParams = {
+    listingType,
+    petsAllowed: listingType === "rent" && petsAllowed !== "all" ? petsAllowed : undefined,
     search: debouncedSearch || undefined,
     status: (status !== "all" && status !== "new") ? status : undefined,
     interestLevel: interestLevel !== "all" ? interestLevel : undefined,
@@ -470,6 +557,22 @@ export default function Home() {
     },
   });
   const allListings = Array.isArray(allListingsData) ? allListingsData : [];
+  const rentBounds = useMemo(() => {
+    const rents = allListings
+      .map((l) => parseRentAmount(l.currentPrice))
+      .filter((n): n is number => typeof n === "number" && Number.isFinite(n));
+    if (rents.length === 0) return { min: 0, max: 2000 };
+    const min = Math.floor(Math.min(...rents) / 50) * 50;
+    const max = Math.ceil(Math.max(...rents) / 50) * 50;
+    return { min, max: Math.max(min + 50, max) };
+  }, [allListings]);
+
+  React.useEffect(() => {
+    if (listingType !== "rent") return;
+    // If a value is set, clamp it to new bounds; if null (unset), leave it alone.
+    setMinRent((prev) => prev === null ? null : Math.max(rentBounds.min, Math.min(prev, rentBounds.max - 50)));
+    setMaxRent((prev) => prev === null ? null : Math.min(rentBounds.max, Math.max(prev, rentBounds.min + 50)));
+  }, [rentBounds, listingType]);
 
   const { data: priceHistory } = useQuery<PriceChange[]>({
     queryKey: ["recent-price-changes"],
@@ -490,12 +593,22 @@ export default function Home() {
   const listings = useMemo(() => {
     let filtered = allListings.filter((l) => {
       if (boroughs.length > 0 && !boroughs.includes(l.neighborhood || "")) return false;
-      if (parkingInfos.length > 0 && !parkingInfos.includes(l.parkingInfo || "")) return false;
+      if (parkingInfos.length > 0 && !parkingInfos.includes(formatParking(l.parkingInfo))) return false;
       if (condoTypes.length > 0 && !condoTypes.includes(l.propertyType || "")) return false;
       if (metros.length > 0 && !metros.includes(l.nearestMetro || "")) return false;
       if (visitNextOnly && !l.visitNext) return false;
       if (visitedOnly && !l.visited) return false;
       if (status === "new" && !isNewListing(l.firstSavedAt)) return false;
+      if (listingType === "rent" && availableBy.trim()) {
+        const left = (l.availableFrom || "").toLowerCase();
+        const right = availableBy.trim().toLowerCase();
+        if (left !== right) return false;
+      }
+      if (listingType === "rent" && (minRent !== null || maxRent !== null)) {
+        const amount = parseRentAmount(l.currentPrice);
+        if (amount !== null && (minRent !== null && amount < minRent)) return false;
+        if (amount !== null && (maxRent !== null && amount > maxRent)) return false;
+      }
       return true;
     });
     // condoFees / taxes are text columns — sort client-side after filtering
@@ -509,7 +622,7 @@ export default function Home() {
       });
     }
     return filtered;
-  }, [allListings, boroughs, parkingInfos, condoTypes, metros, visitNextOnly, visitedOnly, sortBy, sortDir]);
+  }, [allListings, boroughs, parkingInfos, condoTypes, metros, visitNextOnly, visitedOnly, sortBy, sortDir, listingType, availableBy, minRent, maxRent]);
 
   const totalCount = allListings?.length ?? 0;
   const filteredCount = listings.length;
@@ -537,9 +650,9 @@ export default function Home() {
             return isNaN(n) ? v : `$${n.toLocaleString("en-CA")}`;
           };
           const lines = (data.changes ?? []).slice(0, 4).map((c) => {
-            const addr = fmtAddr(c.address);
-            if (c.changeType === "price_drop") return `↓ ${addr}: ${fmtVal(c.oldValue)} → ${fmtVal(c.newValue)}`;
-            if (c.changeType === "price_increase") return `↑ ${addr}: ${fmtVal(c.oldValue)} → ${fmtVal(c.newValue)}`;
+            const addr = fmtAddr(c.address ?? null);
+            if (c.changeType === "price_drop") return `↓ ${addr}: ${fmtVal(c.oldValue ?? null)} → ${fmtVal(c.newValue ?? null)}`;
+            if (c.changeType === "price_increase") return `↑ ${addr}: ${fmtVal(c.oldValue ?? null)} → ${fmtVal(c.newValue ?? null)}`;
             if (c.changeType === "status_change") return `${addr}: ${c.oldValue} → ${c.newValue}`;
             return `${addr}: ${c.fieldName} changed`;
           });
@@ -605,20 +718,121 @@ export default function Home() {
       updateListing.mutate({ id: listing.id, data: { notes: notes || null } }),
   });
 
+  const copyListingsToClipboard = async (selected: Array<(typeof listings)[0]>) => {
+    const lines = selected.map((l) => ({
+      address: l.address || l.title || "",
+      borough: l.neighborhood || "",
+      url: l.listingUrl || "",
+    }));
+    const htmlLines = lines.map(({ address, url, borough }) => {
+      const linked = url ? `<a href="${url}">${address}</a>` : address;
+      return borough ? `${linked} - ${borough}` : linked;
+    });
+    const plainLines = lines.map(({ address, borough }) =>
+      borough ? `${address} - ${borough}` : address
+    );
+    const htmlBlob = new Blob(
+      [`<meta charset="utf-8">${htmlLines.join("<br>")}`],
+      { type: "text/html" }
+    );
+    const textBlob = new Blob([plainLines.join("\n")], { type: "text/plain" });
+    await navigator.clipboard.write([new ClipboardItem({ "text/html": htmlBlob, "text/plain": textBlob })]);
+    toast({ title: `Copied ${selected.length} listing${selected.length !== 1 ? "s" : ""}` });
+  };
+
+  const openRentEditDialog = (listing: (typeof listings)[0]) => {
+    const normalizedPets = (() => {
+      const v = (listing.petsAllowedInfo || "").toLowerCase();
+      if (v === "cats_only" || v === "cats_allowed") return "cats_only";
+      if (v === "cats_and_dogs" || v === "cats_and_dogs_allowed") return "cats_and_dogs";
+      if (v === "no_pets" || v === "not_allowed") return "no_pets";
+      if (v === "all_pets" || v === "pets_allowed" || v === "pet_friendly_unspecified") return "all_pets";
+      return "";
+    })();
+    const normalizedBorough = listing.neighborhood || "";
+    setEditingRentId(listing.id);
+    setRentEditTouched(new Set());
+    setRentEditValues({
+      currentPrice: listing.currentPrice || "",
+      address: listing.address || "",
+      neighborhood: normalizedBorough,
+      bedrooms: listing.bedrooms != null ? String(listing.bedrooms) : "",
+      bathrooms: listing.bathrooms != null ? String(listing.bathrooms) : "",
+      squareFeet: listing.squareFeet != null ? String(listing.squareFeet) : "",
+      parkingInfo: formatParking(listing.parkingInfo) === "—" ? "" : formatParking(listing.parkingInfo),
+      furnishedStatus: (listing.furnishedStatus || "").toLowerCase() === "yes" ? "yes" : (listing.furnishedStatus || "").toLowerCase() === "no" ? "no" : "",
+      availableFrom: listing.availableFrom || "",
+      petsAllowedInfo: normalizedPets,
+      floor: listing.floor || "",
+      airConditioning: (listing.airConditioning || "").toLowerCase() === "yes" ? "yes" : (listing.airConditioning || "").toLowerCase() === "no" ? "no" : "",
+      appliancesIncluded: listing.appliancesIncluded || "",
+      notes: listing.notes || "",
+    });
+  };
+
+  const updateRentEditField = (field: keyof typeof rentEditValues, value: string) => {
+    setRentEditValues((prev) => ({ ...prev, [field]: value }));
+    setRentEditTouched((prev) => new Set(prev).add(field));
+  };
+
+  const saveRentEdits = () => {
+    if (!editingRentId) return;
+    if (rentEditTouched.size === 0) {
+      setEditingRentId(null);
+      return;
+    }
+    const listing = allListings.find((l) => l.id === editingRentId);
+    let parsedLocked: string[] = [];
+    if (listing?.lockedFields) {
+      try {
+        parsedLocked = JSON.parse(listing.lockedFields) as string[];
+      } catch {
+        parsedLocked = [];
+      }
+    }
+    const existingLocked = new Set<string>(parsedLocked);
+    const lockedFields = Array.from(new Set([...existingLocked, ...Array.from(rentEditTouched)]));
+    const data: Record<string, unknown> = { lockedFields };
+    if (rentEditTouched.has("currentPrice")) data.currentPrice = rentEditValues.currentPrice || null;
+    if (rentEditTouched.has("address")) data.address = rentEditValues.address || null;
+    if (rentEditTouched.has("neighborhood")) data.neighborhood = rentEditValues.neighborhood || null;
+    if (rentEditTouched.has("bedrooms")) data.bedrooms = parseInt(rentEditValues.bedrooms, 10) || null;
+    if (rentEditTouched.has("bathrooms")) data.bathrooms = parseInt(rentEditValues.bathrooms, 10) || null;
+    if (rentEditTouched.has("squareFeet")) data.squareFeet = parseInt(rentEditValues.squareFeet, 10) || null;
+    if (rentEditTouched.has("parkingInfo")) data.parkingInfo = rentEditValues.parkingInfo || null;
+    if (rentEditTouched.has("furnishedStatus")) data.furnishedStatus = rentEditValues.furnishedStatus || null;
+    if (rentEditTouched.has("availableFrom")) data.availableFrom = rentEditValues.availableFrom || null;
+    if (rentEditTouched.has("petsAllowedInfo")) data.petsAllowedInfo = rentEditValues.petsAllowedInfo || null;
+    if (rentEditTouched.has("floor")) data.floor = rentEditValues.floor || null;
+    if (rentEditTouched.has("airConditioning")) data.airConditioning = rentEditValues.airConditioning || null;
+    if (rentEditTouched.has("appliancesIncluded")) data.appliancesIncluded = rentEditValues.appliancesIncluded || null;
+    if (rentEditTouched.has("notes")) data.notes = rentEditValues.notes || null;
+    updateListing.mutate({
+      id: editingRentId,
+      data,
+    }, {
+      onSuccess: () => {
+        setEditingRentId(null);
+        setRentEditTouched(new Set());
+      },
+    });
+  };
+
   const onSetInterest = (id: number) => (next: string | null) =>
     updateListing.mutate({ id, data: { interestLevel: next } });
 
   const boroughOptions = [...new Set((allListings ?? []).map((l) => l.neighborhood).filter(Boolean))].sort() as string[];
-  const parkingOptions = [...new Set((allListings ?? []).map((l) => l.parkingInfo).filter(Boolean))].sort() as string[];
+  const parkingOptions = [...new Set((allListings ?? []).map((l) => formatParking(l.parkingInfo)).filter((v) => v && v !== "—"))].sort() as string[];
   const metroOptions = [...new Set((allListings ?? []).map((l) => l.nearestMetro).filter(Boolean))].sort() as string[];
   const condoTypeOptions = [...new Set((allListings ?? []).map((l) => l.propertyType).filter(Boolean))].sort() as string[];
+  const availableFromOptions = [...new Set((allListings ?? []).map((l) => l.availableFrom).filter(Boolean))].sort() as string[];
 
   const EmptyState = () => (
     <div className="flex flex-col items-center justify-center py-20 text-muted-foreground gap-3">
       <MapPin className="w-10 h-10 opacity-30" />
       <p className="text-sm font-medium">No listings found</p>
-      {(debouncedSearch || status !== "all" || interestLevel !== "all" || boroughs.length > 0 || parkingInfos.length > 0 || condoTypes.length > 0 || metros.length > 0 || visitNextOnly || visitedOnly) && (
-        <Button variant="outline" size="sm" onClick={() => { setSearch(""); setStatus("all"); setInterestLevel("all"); setBoroughs([]); setParkingInfos([]); setCondoTypes([]); setMetros([]); setVisitNextOnly(false); setVisitedOnly(false); }}>
+      {(debouncedSearch || status !== "all" || interestLevel !== "all" || boroughs.length > 0 || parkingInfos.length > 0 || condoTypes.length > 0 || metros.length > 0 || visitNextOnly || visitedOnly || petsAllowed !== "all" || availableBy || minRent !== null || maxRent !== null) && (
+        <Button variant="outline" size="sm" onClick={() => { setSearch(""); setStatus("all"); setInterestLevel("all"); setBoroughs([]); setParkingInfos([]); setCondoTypes([]); setMetros([]); setVisitNextOnly(false); setVisitedOnly(false); setMinRent(null); setMaxRent(null); setPetsAllowed("all"); setAvailableBy(""); }}>
           Clear filters
         </Button>
       )}
@@ -628,6 +842,28 @@ export default function Home() {
   return (
     <div className="flex-1 p-4 md:p-6 container mx-auto space-y-4 max-w-[1800px]">
       <div className="bg-card border rounded-xl overflow-hidden flex flex-col shadow-md">
+        <div className="px-4 py-2.5 border-b bg-muted/20">
+          <div className="inline-flex items-center rounded-md border p-0.5">
+            <Button
+              variant={listingType === "buy" ? "default" : "ghost"}
+              size="sm"
+              className="h-7"
+              onClick={() => setListingType("buy")}
+              data-testid="tab-buy"
+            >
+              Buy
+            </Button>
+            <Button
+              variant={listingType === "rent" ? "default" : "ghost"}
+              size="sm"
+              className="h-7"
+              onClick={() => setListingType("rent")}
+              data-testid="tab-rent"
+            >
+              Rent
+            </Button>
+          </div>
+        </div>
 
         {/* Toolbar */}
         <div className="px-4 py-3 border-b flex flex-col md:flex-row gap-3 items-start md:items-center justify-between">
@@ -660,26 +896,9 @@ export default function Home() {
                   size="sm"
                   onClick={() => {
                     const selected = (allListings ?? []).filter((l) => selectedIds.has(l.id));
-                    const lines = selected.map((l) => ({
-                      address: l.address || l.title || "",
-                      borough: l.neighborhood || "",
-                      url: l.listingUrl || "",
-                    }));
-                    const htmlLines = lines.map(({ address, url, borough }) => {
-                      const linked = url ? `<a href="${url}">${address}</a>` : address;
-                      return borough ? `${linked} - ${borough}` : linked;
-                    });
-                    const plainLines = lines.map(({ address, borough }) =>
-                      borough ? `${address} - ${borough}` : address
+                    copyListingsToClipboard(selected).catch(() =>
+                      toast({ title: "Copy failed", variant: "destructive" })
                     );
-                    const htmlBlob = new Blob(
-                      [`<meta charset="utf-8">${htmlLines.join("<br>")}`],
-                      { type: "text/html" }
-                    );
-                    const textBlob = new Blob([plainLines.join("\n")], { type: "text/plain" });
-                    navigator.clipboard.write([new ClipboardItem({ "text/html": htmlBlob, "text/plain": textBlob })]).then(() => {
-                      toast({ title: `Copied ${selected.length} listing${selected.length !== 1 ? "s" : ""}` });
-                    });
                   }}
                   data-testid="btn-bulk-copy"
                 >
@@ -717,7 +936,7 @@ export default function Home() {
                 </Button>
               </>
             )}
-            <AddListingDialog />
+            <AddListingDialog listingType={listingType} />
             <Button variant="outline" size="sm" onClick={() => checkAll.mutate()} disabled={checkAll.isPending} data-testid="btn-check-all">
               <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${checkAll.isPending ? "animate-spin" : ""}`} />
               Check All
@@ -748,7 +967,7 @@ export default function Home() {
         {/* Filters */}
         <div className="px-4 py-2.5 border-b flex flex-wrap gap-2 items-center bg-muted/10">
           <Select value={status} onValueChange={setStatus}>
-            <SelectTrigger className="w-[130px] h-7 text-xs" data-testid="filter-status">
+            <SelectTrigger className="w-[130px] h-7 text-xs bg-background" data-testid="filter-status">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
@@ -760,7 +979,7 @@ export default function Home() {
           </Select>
 
           <Select value={interestLevel} onValueChange={setInterestLevel}>
-            <SelectTrigger className="w-[120px] h-7 text-xs" data-testid="filter-interest">
+            <SelectTrigger className="w-[120px] h-7 text-xs bg-background" data-testid="filter-interest">
               <SelectValue placeholder="Interest" />
             </SelectTrigger>
             <SelectContent>
@@ -775,6 +994,20 @@ export default function Home() {
           <MultiFilter label="Metro" options={metroOptions} selected={metros} onChange={setMetros} />
           <MultiFilter label="Parking" options={parkingOptions} selected={parkingInfos} onChange={setParkingInfos} />
           <MultiFilter label="Type" options={condoTypeOptions} selected={condoTypes} onChange={setCondoTypes} />
+          {listingType === "rent" && (
+            <RentFilters
+              minRent={minRent}
+              maxRent={maxRent}
+              onMinRentChange={setMinRent}
+              onMaxRentChange={setMaxRent}
+              rentBounds={rentBounds}
+              petsAllowed={petsAllowed}
+              onPetsAllowedChange={setPetsAllowed}
+              availableBy={availableBy}
+              onAvailableByChange={setAvailableBy}
+              availableOptions={availableFromOptions}
+            />
+          )}
 
           <button
             onClick={() => setVisitNextOnly((v) => !v)}
@@ -793,7 +1026,7 @@ export default function Home() {
           </button>
 
           <Select value={`${sortBy}-${sortDir}`} onValueChange={(v) => { const [by, dir] = v.split("-"); setSortBy(by); setSortDir(dir); }}>
-            <SelectTrigger className="w-[170px] h-7 text-xs" data-testid="filter-sort">
+            <SelectTrigger className="w-[170px] h-7 text-xs bg-background" data-testid="filter-sort">
               <SelectValue placeholder="Sort By" />
             </SelectTrigger>
             <SelectContent>
@@ -801,10 +1034,10 @@ export default function Home() {
               <SelectItem value="currentPrice-asc">Price ↑</SelectItem>
               <SelectItem value="currentPrice-desc">Price ↓</SelectItem>
               <SelectItem value="firstSavedAt-desc">Recently Added</SelectItem>
-              <SelectItem value="condoFees-asc">Fees ↑</SelectItem>
-              <SelectItem value="condoFees-desc">Fees ↓</SelectItem>
-              <SelectItem value="taxes-asc">Taxes ↑</SelectItem>
-              <SelectItem value="taxes-desc">Taxes ↓</SelectItem>
+              {!isRentView && <SelectItem value="condoFees-asc">Fees ↑</SelectItem>}
+              {!isRentView && <SelectItem value="condoFees-desc">Fees ↓</SelectItem>}
+              {!isRentView && <SelectItem value="taxes-asc">Taxes ↑</SelectItem>}
+              {!isRentView && <SelectItem value="taxes-desc">Taxes ↓</SelectItem>}
             </SelectContent>
           </Select>
 
@@ -818,7 +1051,7 @@ export default function Home() {
                 localStorage.setItem("watchlist-page-size", String(n));
               }}
             >
-              <SelectTrigger className="w-[70px] h-7 text-xs" data-testid="filter-page-size">
+              <SelectTrigger className="w-[70px] h-7 text-xs bg-background" data-testid="filter-page-size">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -874,7 +1107,7 @@ export default function Home() {
                   <TableHead className="w-32"></TableHead>
                   <TableHead className="min-w-[220px]">Address</TableHead>
                   <TableHead className="w-28">
-                    <SortableHeader label="Price" field="currentPrice" sortBy={sortBy} sortDir={sortDir} onSort={onSort} />
+                    <SortableHeader label={isRentView ? "Rent" : "Price"} field="currentPrice" sortBy={sortBy} sortDir={sortDir} onSort={onSort} />
                   </TableHead>
                   <TableHead className="w-28">
                     <SortableHeader label="Specs" field="bedrooms" sortBy={sortBy} sortDir={sortDir} onSort={onSort} />
@@ -882,7 +1115,7 @@ export default function Home() {
                   <TableHead className="w-24">
                     <SortableHeader label="Net Area" field="squareFeet" sortBy={sortBy} sortDir={sortDir} onSort={onSort} />
                   </TableHead>
-                  <TableHead className="w-28">Type</TableHead>
+                  {!isRentView && <TableHead className="w-28">Type</TableHead>}
                   <TableHead className="w-32">Borough</TableHead>
                   <TableHead className="w-20">
                     <SortableHeader label="Interest" field="interestLevel" sortBy={sortBy} sortDir={sortDir} onSort={onSort} />
@@ -891,9 +1124,22 @@ export default function Home() {
                   <TableHead className="w-28">
                     <SortableHeader label="Metro" field="walkingMinutes" sortBy={sortBy} sortDir={sortDir} onSort={onSort} />
                   </TableHead>
-                  <TableHead className="w-24">Fees</TableHead>
-                  <TableHead className="w-24">Tax</TableHead>
-                  <TableHead className="w-32">Price History</TableHead>
+                  {isRentView ? (
+                    <>
+                      <TableHead className="w-24">Pets</TableHead>
+                      <TableHead className="w-28">Available</TableHead>
+                      <TableHead className="w-24">Floor</TableHead>
+                      <TableHead className="w-28">Furnished</TableHead>
+                      <TableHead className="w-24">A/C</TableHead>
+                      <TableHead className="w-36">Appliances</TableHead>
+                    </>
+                  ) : (
+                    <>
+                      <TableHead className="w-24">Fees</TableHead>
+                      <TableHead className="w-24">Tax</TableHead>
+                      <TableHead className="w-32">Price History</TableHead>
+                    </>
+                  )}
                   <TableHead className="w-10 text-center">Notes</TableHead>
                   <TableHead className="w-28 text-left">Last Checked</TableHead>
                   <TableHead className="w-8"></TableHead>
@@ -903,14 +1149,14 @@ export default function Home() {
                 {isLoadingListings ? (
                   Array.from({ length: pageSize }).map((_, i) => (
                     <TableRow key={i}>
-                      {Array.from({ length: 18 }).map((_, j) => (
+                      {Array.from({ length: isRentView ? 21 : 18 }).map((_, j) => (
                         <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>
                       ))}
                     </TableRow>
                   ))
                 ) : listings.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={18}>
+                    <TableCell colSpan={isRentView ? 19 : 18}>
                       <EmptyState />
                     </TableCell>
                   </TableRow>
@@ -988,7 +1234,7 @@ export default function Home() {
                           <div className="flex items-center gap-1">
                             <span
                               title={listing.listingStatus ?? "unknown"}
-                              className={`flex-shrink-0 block w-2 h-2 rounded-full ${listing.listingStatus === "active" ? "bg-emerald-500" : "bg-red-500"}`}
+                              className={`flex-shrink-0 block w-2 h-2 rounded-full ${listing.listingStatus === "active" ? "bg-emerald-500" : listing.listingStatus === "checking" ? "bg-blue-400 animate-pulse" : "bg-red-500"}`}
                             />
                             {listing.listingUrl ? (
                               <a
@@ -1031,6 +1277,11 @@ export default function Home() {
                                 INACTIVE
                               </span>
                             )}
+                            {listing.listingStatus === "checking" && (
+                              <span className="flex-shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-blue-500/15 text-blue-400 border border-blue-500/30 leading-none animate-pulse">
+                                LOADING
+                              </span>
+                            )}
                           </div>
                         </TableCell>
 
@@ -1054,8 +1305,9 @@ export default function Home() {
                           ) : "—"}
                         </TableCell>
 
-                        {/* Type */}
-                        <TableCell className="text-muted-foreground">{fmt(listing.propertyType)}</TableCell>
+                        {!isRentView && (
+                          <TableCell className="text-muted-foreground">{fmt(listing.propertyType)}</TableCell>
+                        )}
 
                         {/* Borough */}
                         <TableCell className="text-muted-foreground">{fmt(listing.neighborhood)}</TableCell>
@@ -1066,7 +1318,7 @@ export default function Home() {
                         </TableCell>
 
                         {/* Parking */}
-                        <TableCell className="text-muted-foreground">{fmt(listing.parkingInfo)}</TableCell>
+                        <TableCell className="text-muted-foreground">{formatParking(listing.parkingInfo)}</TableCell>
 
                         {/* Metro */}
                         <TableCell>
@@ -1081,34 +1333,47 @@ export default function Home() {
                           ) : "—"}
                         </TableCell>
 
-                        {/* Condo Fees/mo */}
-                        <TableCell className={`tabular-nums ${!!listing.condoFees && parseMonthly(listing.condoFees) > 450 ? "text-amber-500" : "text-muted-foreground"}`}>
-                          <span className="flex items-center gap-1">
-                            {fmt(listing.condoFees)}
-                            {!!listing.condoFees && parseMonthly(listing.condoFees) > 450 && <AlertCircle className="w-3 h-3 shrink-0" />}
-                          </span>
-                        </TableCell>
+                        {isRentView ? (
+                          <>
+                            <TableCell className="text-muted-foreground">{formatPets(listing.petsAllowedInfo)}</TableCell>
+                            <TableCell className="text-muted-foreground">{fmt(listing.availableFrom)}</TableCell>
+                            <TableCell className="text-muted-foreground">{fmt(listing.floor)}</TableCell>
+                            <TableCell className="text-muted-foreground">{formatFurnished(listing.furnishedStatus)}</TableCell>
+                            <TableCell className="text-muted-foreground">{formatFurnished(listing.airConditioning)}</TableCell>
+                            <TableCell className="text-muted-foreground text-xs">{listing.appliancesIncluded || "—"}</TableCell>
+                          </>
+                        ) : (
+                          <>
+                            {/* Condo Fees/mo */}
+                            <TableCell className={`tabular-nums ${!!listing.condoFees && parseMonthly(listing.condoFees) > 450 ? "text-amber-500" : "text-muted-foreground"}`}>
+                              <span className="flex items-center gap-1">
+                                {fmt(listing.condoFees)}
+                                {!!listing.condoFees && parseMonthly(listing.condoFees) > 450 && <AlertCircle className="w-3 h-3 shrink-0" />}
+                              </span>
+                            </TableCell>
 
-                        {/* Tax/mo */}
-                        <TableCell className={`tabular-nums ${!!listing.taxes && parseMonthly(listing.taxes) > 450 ? "text-amber-500" : "text-muted-foreground"}`}>
-                          <span className="flex items-center gap-1">
-                            {toMonthly(listing.taxes)}
-                            {!!listing.taxes && parseMonthly(listing.taxes) > 450 && <AlertCircle className="w-3 h-3 shrink-0" />}
-                          </span>
-                        </TableCell>
+                            {/* Tax/mo */}
+                            <TableCell className={`tabular-nums ${!!listing.taxes && parseMonthly(listing.taxes) > 450 ? "text-amber-500" : "text-muted-foreground"}`}>
+                              <span className="flex items-center gap-1">
+                                {toMonthly(listing.taxes)}
+                                {!!listing.taxes && parseMonthly(listing.taxes) > 450 && <AlertCircle className="w-3 h-3 shrink-0" />}
+                              </span>
+                            </TableCell>
 
-                        {/* Price History (60d) */}
-                        <TableCell>
-                          {pcd ? (
-                            <div className={`flex items-center gap-0.5 font-medium ${pcd.isDown ? "text-emerald-400" : "text-red-400"}`}>
-                              {pcd.isDown ? <ArrowDown className="w-3 h-3 flex-shrink-0" /> : <ArrowUp className="w-3 h-3 flex-shrink-0" />}
-                              <span>{pcd.label}</span>
-                              <span className="text-muted-foreground font-normal ml-1">· {pcd.date}</span>
-                            </div>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                        </TableCell>
+                            {/* Price History (60d) */}
+                            <TableCell>
+                              {pcd ? (
+                                <div className={`flex items-center gap-0.5 font-medium ${pcd.isDown ? "text-emerald-400" : "text-red-400"}`}>
+                                  {pcd.isDown ? <ArrowDown className="w-3 h-3 flex-shrink-0" /> : <ArrowUp className="w-3 h-3 flex-shrink-0" />}
+                                  <span>{pcd.label}</span>
+                                  <span className="text-muted-foreground font-normal ml-1">· {pcd.date}</span>
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
+                            </TableCell>
+                          </>
+                        )}
 
                         {/* Notes + actions */}
                         <TableCell>
@@ -1136,6 +1401,33 @@ export default function Home() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                className="gap-2"
+                                onClick={() =>
+                                  copyListingsToClipboard([listing]).catch(() =>
+                                    toast({ title: "Copy failed", variant: "destructive" })
+                                  )
+                                }
+                              >
+                                <Copy className="w-3.5 h-3.5" />
+                                Copy listing
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="gap-2"
+                                onClick={() => updateListing.mutate({ id: listing.id, data: { visitNext: !listing.visitNext } })}
+                              >
+                                <Flag className={`w-3.5 h-3.5 ${listing.visitNext ? "fill-violet-500/50" : ""}`} />
+                                {listing.visitNext ? "Unflag visit" : "Flag for visit"}
+                              </DropdownMenuItem>
+                              {listing.listingType === "rent" && (
+                                <DropdownMenuItem
+                                  className="gap-2"
+                                  onClick={() => openRentEditDialog(listing)}
+                                >
+                                  <StickyNote className="w-3.5 h-3.5" />
+                                  Edit rent fields
+                                </DropdownMenuItem>
+                              )}
                               <DropdownMenuItem
                                 className="text-destructive focus:text-destructive focus:bg-destructive/10 gap-2"
                                 onClick={() => deleteListing.mutate({ id: listing.id })}
@@ -1341,7 +1633,7 @@ export default function Home() {
                             <span className="flex items-center gap-1.5 text-muted-foreground">
                               <Car className="w-3.5 h-3.5 flex-shrink-0" />
                               <span className="font-semibold text-foreground">
-                                {listing.parkingInfo.replace(/\s*\([^)]+\)/g, "").trim()}
+                                {formatParking(listing.parkingInfo)}
                               </span>
                             </span>
                           )}
@@ -1359,25 +1651,26 @@ export default function Home() {
                           </div>
                         )}
 
+                        {/* Financials — buy only */}
+                        {!isRentView && (<>
                         <div className="h-px bg-border/50" />
-
-                        {/* Financials */}
-                        <div className="grid grid-cols-2 gap-1.5">
-                          <div className="rounded bg-muted/40 px-2 py-1">
-                            <p className="text-[9px] text-muted-foreground uppercase tracking-wide">Condo fees</p>
-                            <p className={`text-xs font-semibold tabular-nums flex items-center gap-1 ${!!listing.condoFees && parseMonthly(listing.condoFees) > 450 ? "text-amber-500" : ""}`}>
-                              {fmt(listing.condoFees)}
-                              {!!listing.condoFees && parseMonthly(listing.condoFees) > 450 && <AlertCircle className="w-3 h-3 shrink-0" />}
-                            </p>
+                          <div className="grid grid-cols-2 gap-1.5">
+                            <div className="rounded bg-muted/40 px-2 py-1">
+                              <p className="text-[9px] text-muted-foreground uppercase tracking-wide">Condo fees</p>
+                              <p className={`text-xs font-semibold tabular-nums flex items-center gap-1 ${!!listing.condoFees && parseMonthly(listing.condoFees) > 450 ? "text-amber-500" : ""}`}>
+                                {fmt(listing.condoFees)}
+                                {!!listing.condoFees && parseMonthly(listing.condoFees) > 450 && <AlertCircle className="w-3 h-3 shrink-0" />}
+                              </p>
+                            </div>
+                            <div className="rounded bg-muted/40 px-2 py-1">
+                              <p className="text-[9px] text-muted-foreground uppercase tracking-wide">Tax</p>
+                              <p className={`text-xs font-semibold tabular-nums flex items-center gap-1 ${!!listing.taxes && parseMonthly(listing.taxes) > 450 ? "text-amber-500" : ""}`}>
+                                {toMonthly(listing.taxes)}
+                                {!!listing.taxes && parseMonthly(listing.taxes) > 450 && <AlertCircle className="w-3 h-3 shrink-0" />}
+                              </p>
+                            </div>
                           </div>
-                          <div className="rounded bg-muted/40 px-2 py-1">
-                            <p className="text-[9px] text-muted-foreground uppercase tracking-wide">Tax</p>
-                            <p className={`text-xs font-semibold tabular-nums flex items-center gap-1 ${!!listing.taxes && parseMonthly(listing.taxes) > 450 ? "text-amber-500" : ""}`}>
-                              {toMonthly(listing.taxes)}
-                              {!!listing.taxes && parseMonthly(listing.taxes) > 450 && <AlertCircle className="w-3 h-3 shrink-0" />}
-                            </p>
-                          </div>
-                        </div>
+                        </>)}
 
                       </div>
                       {/* ── Footer ── */}
@@ -1405,6 +1698,17 @@ export default function Home() {
                             <Flag className={`w-3.5 h-3.5 ${listing.visitNext ? "fill-violet-500/50" : ""}`} />
                           </Button>
                           <NotesPopover {...notesProps(listing)} />
+                          {listing.listingType === "rent" && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+                              title="Edit rent fields"
+                              onClick={() => openRentEditDialog(listing)}
+                            >
+                              <StickyNote className="w-3.5 h-3.5" />
+                            </Button>
+                          )}
                           <Button
                             variant="ghost"
                             size="icon"
@@ -1424,6 +1728,126 @@ export default function Home() {
             )}
           </div>
         )}
+
+        <Dialog open={editingRentId !== null} onOpenChange={(next) => { if (!next) setEditingRentId(null); }}>
+          <DialogContent className="sm:max-w-[560px]">
+            <DialogHeader>
+              <DialogTitle>Edit rent fields</DialogTitle>
+              <DialogDescription>
+                Update your manual values any time. Saved changes stay locked against automated overwrites.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label>Rent Price</Label>
+                  <Input className={!rentEditValues.currentPrice ? "border-yellow-500/60 bg-yellow-500/10" : ""} value={rentEditValues.currentPrice} onChange={(e) => updateRentEditField("currentPrice", e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <Label>Available From</Label>
+                  <Input className={!rentEditValues.availableFrom ? "border-yellow-500/60 bg-yellow-500/10" : ""} value={rentEditValues.availableFrom} onChange={(e) => updateRentEditField("availableFrom", e.target.value)} placeholder="May 1, 2026" />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label>Address</Label>
+                <Input className={!rentEditValues.address ? "border-yellow-500/60 bg-yellow-500/10" : ""} value={rentEditValues.address} onChange={(e) => updateRentEditField("address", e.target.value)} />
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <Label>Bedrooms</Label>
+                  <Input type="number" min={0} className={!rentEditValues.bedrooms ? "border-yellow-500/60 bg-yellow-500/10" : ""} value={rentEditValues.bedrooms} onChange={(e) => updateRentEditField("bedrooms", e.target.value)} placeholder="e.g. 2" />
+                </div>
+                <div className="space-y-1">
+                  <Label>Bathrooms</Label>
+                  <Input type="number" min={0} className={!rentEditValues.bathrooms ? "border-yellow-500/60 bg-yellow-500/10" : ""} value={rentEditValues.bathrooms} onChange={(e) => updateRentEditField("bathrooms", e.target.value)} placeholder="e.g. 1" />
+                </div>
+                <div className="space-y-1">
+                  <Label>Area (sqft)</Label>
+                  <Input type="number" min={0} className={!rentEditValues.squareFeet ? "border-yellow-500/60 bg-yellow-500/10" : ""} value={rentEditValues.squareFeet} onChange={(e) => updateRentEditField("squareFeet", e.target.value)} placeholder="e.g. 650" />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label>Neighborhood</Label>
+                <Select value={rentEditValues.neighborhood || "unknown"} onValueChange={(v) => updateRentEditField("neighborhood", v === "unknown" ? "" : v)}>
+                  <SelectTrigger className={!rentEditValues.neighborhood ? "border-yellow-500/60 bg-yellow-500/10" : ""}><SelectValue placeholder="Select borough" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="unknown">Unknown</SelectItem>
+                    {RENT_BOROUGH_OPTIONS.map((borough) => (
+                      <SelectItem key={borough} value={borough}>{borough}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label>Pets Allowed</Label>
+                  <Select value={rentEditValues.petsAllowedInfo} onValueChange={(v) => updateRentEditField("petsAllowedInfo", v)}>
+                    <SelectTrigger className={!rentEditValues.petsAllowedInfo ? "border-yellow-500/60 bg-yellow-500/10" : ""}><SelectValue placeholder="Select pets policy" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all_pets">All pets</SelectItem>
+                      <SelectItem value="cats_only">Cats only</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label>Parking</Label>
+                  <Select value={rentEditValues.parkingInfo || "unknown"} onValueChange={(v) => updateRentEditField("parkingInfo", v === "unknown" ? "" : v)}>
+                    <SelectTrigger className={!rentEditValues.parkingInfo ? "border-yellow-500/60 bg-yellow-500/10" : ""}><SelectValue placeholder="Select parking" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="unknown">Unknown</SelectItem>
+                      <SelectItem value="No">No</SelectItem>
+                      <SelectItem value="Yes">Yes</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label>Furnished</Label>
+                  <Select value={rentEditValues.furnishedStatus || "unknown"} onValueChange={(v) => updateRentEditField("furnishedStatus", v === "unknown" ? "" : v)}>
+                    <SelectTrigger className={!rentEditValues.furnishedStatus ? "border-yellow-500/60 bg-yellow-500/10" : ""}><SelectValue placeholder="Select furnished status" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="unknown">Unknown</SelectItem>
+                      <SelectItem value="yes">Yes</SelectItem>
+                      <SelectItem value="no">No</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label>Floor</Label>
+                  <Input className={!rentEditValues.floor ? "border-yellow-500/60 bg-yellow-500/10" : ""} value={rentEditValues.floor} onChange={(e) => updateRentEditField("floor", e.target.value)} placeholder="e.g. 2nd floor" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label>Air Conditioning</Label>
+                  <Select value={rentEditValues.airConditioning || "unknown"} onValueChange={(v) => updateRentEditField("airConditioning", v === "unknown" ? "" : v)}>
+                    <SelectTrigger className={!rentEditValues.airConditioning ? "border-yellow-500/60 bg-yellow-500/10" : ""}><SelectValue placeholder="Select A/C status" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="unknown">Unknown</SelectItem>
+                      <SelectItem value="yes">Yes</SelectItem>
+                      <SelectItem value="no">No</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label>Appliances Included</Label>
+                  <Input className={!rentEditValues.appliancesIncluded ? "border-yellow-500/60 bg-yellow-500/10" : ""} value={rentEditValues.appliancesIncluded} onChange={(e) => updateRentEditField("appliancesIncluded", e.target.value)} placeholder="e.g. washer, dryer" />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label>Notes</Label>
+                <Textarea value={rentEditValues.notes} onChange={(e) => updateRentEditField("notes", e.target.value)} />
+              </div>
+              <div className="flex justify-end gap-2 pt-1">
+                <Button variant="outline" onClick={() => setEditingRentId(null)}>Cancel</Button>
+                <Button onClick={saveRentEdits} disabled={updateListing.isPending}>
+                  {updateListing.isPending ? "Saving..." : "Save Changes"}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
         {/* ── PAGINATION FOOTER ── */}
         {!isLoadingListings && filteredCount > 0 && (
           <div className="px-4 py-3 border-t flex items-center justify-between gap-4 flex-wrap bg-muted/10">

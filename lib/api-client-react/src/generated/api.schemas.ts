@@ -19,11 +19,20 @@ export interface SuccessResponse {
   message?: string | null;
 }
 
+export type ListingListingType =
+  (typeof ListingListingType)[keyof typeof ListingListingType];
+
+export const ListingListingType = {
+  buy: "buy",
+  rent: "rent",
+} as const;
+
 export interface Listing {
   id: number;
   listingUrl: string;
   /** @nullable */
   sourceSite?: string | null;
+  listingType: ListingListingType;
   /** @nullable */
   externalListingId?: string | null;
   /** @nullable */
@@ -67,7 +76,30 @@ export interface Listing {
   /** @nullable */
   taxes?: string | null;
   /** @nullable */
+  furnishedStatus?: string | null;
+  /** @nullable */
+  leaseTerm?: string | null;
+  /** @nullable */
+  availableFrom?: string | null;
+  /** @nullable */
+  petsAllowedInfo?: string | null;
+  /** @nullable */
+  appliancesIncluded?: string | null;
+  /** @nullable */
+  airConditioning?: string | null;
+  /** @nullable */
+  extractionConfidence?: number | null;
+  /** @nullable */
+  extractionWarnings?: string | null;
+  /** @nullable */
+  rawContent?: string | null;
+  lockedFields?: string;
+  /** @nullable */
   parkingInfo?: string | null;
+  /** @nullable */
+  nearestMetro?: string | null;
+  /** @nullable */
+  walkingMinutes?: number | null;
   /** @nullable */
   listingStatus?: string | null;
   /** @nullable */
@@ -92,22 +124,32 @@ export interface Listing {
   tags?: string | null;
   hidden: boolean;
   favorite: boolean;
+  visitNext: boolean;
+  visited: boolean;
   /** @nullable */
   lastCheckedAt?: string | null;
   firstSavedAt: string;
   updatedAt: string;
   /** @nullable */
   rawData?: string | null;
-  /** @nullable */
-  nearestMetro?: string | null;
-  /** @nullable */
-  walkingMinutes?: number | null;
-  visitNext: boolean;
-  visited: boolean;
 }
+
+/**
+ * @nullable
+ */
+export type CreateListingBodyListingType =
+  | (typeof CreateListingBodyListingType)[keyof typeof CreateListingBodyListingType]
+  | null;
+
+export const CreateListingBodyListingType = {
+  buy: "buy",
+  rent: "rent",
+} as const;
 
 export interface CreateListingBody {
   listingUrl: string;
+  /** @nullable */
+  listingType?: CreateListingBodyListingType;
   /** @nullable */
   notes?: string | null;
   /** @nullable */
@@ -135,6 +177,42 @@ export interface UpdateListingBody {
   visitNext?: boolean | null;
   /** @nullable */
   visited?: boolean | null;
+  /** @nullable */
+  bedrooms?: number | null;
+  /** @nullable */
+  bathrooms?: number | null;
+  /** @nullable */
+  squareFeet?: number | null;
+  /** @nullable */
+  furnishedStatus?: string | null;
+  /** @nullable */
+  leaseTerm?: string | null;
+  /** @nullable */
+  availableFrom?: string | null;
+  /** @nullable */
+  petsAllowedInfo?: string | null;
+  /** @nullable */
+  appliancesIncluded?: string | null;
+  /** @nullable */
+  airConditioning?: string | null;
+  /** @nullable */
+  parkingInfo?: string | null;
+  /** @nullable */
+  floor?: string | null;
+  /** @nullable */
+  nearestMetro?: string | null;
+  /** @nullable */
+  currentPrice?: string | null;
+  /** @nullable */
+  address?: string | null;
+  /** @nullable */
+  neighborhood?: string | null;
+  /** @nullable */
+  lockedFields?: string[] | null;
+}
+
+export interface BulkDeleteListingsBody {
+  ids: number[];
 }
 
 export interface ListingChange {
@@ -155,18 +233,21 @@ export interface CheckListingResponse {
   changes: ListingChange[];
 }
 
-export interface CheckAllChange {
-  address: string | null;
+export type CheckAllResponseChangesItem = {
+  /** @nullable */
+  address?: string | null;
   changeType: string;
   fieldName: string;
-  oldValue: string | null;
-  newValue: string | null;
-}
+  /** @nullable */
+  oldValue?: string | null;
+  /** @nullable */
+  newValue?: string | null;
+};
 
 export interface CheckAllResponse {
   checked: number;
   totalChanges: number;
-  changes: CheckAllChange[];
+  changes: CheckAllResponseChangesItem[];
 }
 
 export interface ListingSnapshot {
@@ -198,6 +279,15 @@ export interface Notification {
   listingUrl?: string | null;
 }
 
+export type AppSettingsLlmProvider =
+  (typeof AppSettingsLlmProvider)[keyof typeof AppSettingsLlmProvider];
+
+export const AppSettingsLlmProvider = {
+  disabled: "disabled",
+  ollama: "ollama",
+  openai_compatible: "openai_compatible",
+} as const;
+
 export interface AppSettings {
   checkIntervalHours: number;
   extractionMode: string;
@@ -212,9 +302,11 @@ export interface AppSettings {
   /** @nullable */
   realtorExtractionMode?: string | null;
   notifyOnPriceDrop: boolean;
-  /** @nullable */
-  notifyOnStatusChange?: boolean | null;
+  notifyOnStatusChange: boolean;
   notifyOnUnavailable: boolean;
+  llmProvider: AppSettingsLlmProvider;
+  /** @nullable */
+  llmModel?: string | null;
 }
 
 export interface DashboardSummary {
@@ -236,7 +328,23 @@ export type GetListingsParams = {
   /**
    * @nullable
    */
+  listingType?: GetListingsListingType;
+  /**
+   * @nullable
+   */
   status?: string | null;
+  /**
+   * @nullable
+   */
+  maxRent?: string | null;
+  /**
+   * @nullable
+   */
+  petsAllowed?: string | null;
+  /**
+   * @nullable
+   */
+  availableBy?: string | null;
   /**
    * @nullable
    */
@@ -261,6 +369,19 @@ export type GetListingsParams = {
    * @nullable
    */
   sortDir?: string | null;
+};
+
+export type GetListingsListingType =
+  | (typeof GetListingsListingType)[keyof typeof GetListingsListingType]
+  | null;
+
+export const GetListingsListingType = {
+  buy: "buy",
+  rent: "rent",
+} as const;
+
+export type BulkDeleteListings200 = {
+  deleted: number;
 };
 
 export type GetNotificationsParams = {

@@ -28,8 +28,13 @@ const router: IRouter = Router();
 
 // GET /listings
 router.get("/listings", async (req, res): Promise<void> => {
+  try {
   const {
+    listingType,
     source,
+    maxRent,
+    petsAllowed,
+    availableBy,
     status,
     interestLevel,
     neighborhood,
@@ -45,14 +50,36 @@ router.get("/listings", async (req, res): Promise<void> => {
 
   const conditions = [];
 
+  if (listingType) conditions.push(eq(listingsTable.listingType, listingType));
   if (source) conditions.push(eq(listingsTable.sourceSite, source));
   if (status) conditions.push(eq(listingsTable.listingStatus, status));
+  if (petsAllowed) {
+    if (petsAllowed === "cats_only" || petsAllowed === "cats_allowed") {
+      conditions.push(sql`${listingsTable.petsAllowedInfo} IN ('cats_only', 'cats_allowed')`);
+    } else if (petsAllowed === "cats_and_dogs" || petsAllowed === "cats_and_dogs_allowed") {
+      conditions.push(sql`${listingsTable.petsAllowedInfo} IN ('cats_and_dogs', 'cats_and_dogs_allowed')`);
+    } else if (petsAllowed === "all_pets" || petsAllowed === "pets_allowed") {
+      conditions.push(sql`${listingsTable.petsAllowedInfo} IN ('all_pets', 'pets_allowed', 'pet_friendly_unspecified')`);
+    } else if (petsAllowed === "pet_friendly") {
+      conditions.push(sql`${listingsTable.petsAllowedInfo} IN ('cats_only', 'cats_allowed', 'cats_and_dogs', 'cats_and_dogs_allowed', 'all_pets', 'pets_allowed', 'pet_friendly_unspecified')`);
+    } else if (petsAllowed === "no_pets" || petsAllowed === "not_allowed") {
+      conditions.push(sql`${listingsTable.petsAllowedInfo} IN ('no_pets', 'not_allowed')`);
+    }
+  }
+  if (availableBy) {
+    conditions.push(sql`${listingsTable.availableFrom} <= ${availableBy}`);
+  }
   if (interestLevel) conditions.push(eq(listingsTable.interestLevel, interestLevel));
   if (neighborhood) conditions.push(eq(listingsTable.neighborhood, neighborhood));
   if (parkingInfo) conditions.push(eq(listingsTable.parkingInfo, parkingInfo));
 
   if (hasPriceDrop === "true") {
     conditions.push(sql`${listingsTable.priceDelta}::numeric < 0`);
+  }
+  if (maxRent) {
+    conditions.push(
+      sql`CAST(NULLIF(REGEXP_REPLACE(COALESCE(${listingsTable.currentPrice}, ''), '[^0-9.]', '', 'g'), '') AS NUMERIC) <= ${maxRent}`,
+    );
   }
 
   if (archived === "true") {
@@ -114,6 +141,31 @@ router.get("/listings", async (req, res): Promise<void> => {
 
   const listings = await query;
   res.json(listings);
+  } catch (err) {
+    const details = err instanceof Error ? err.message : String(err);
+    req.log.error({ err }, "Failed to fetch listings");
+    res.status(500).json({ error: details });
+  }
+});
+
+// POST /listings/preview-extraction
+router.post("/listings/preview-extraction", async (req, res): Promise<void> => {
+  const parsed = CreateListingBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const listingUrl = parsed.data.listingUrl?.trim();
+  const listingType = parsed.data.listingType ?? "buy";
+  const urlError = validateListingUrl(listingUrl, listingType);
+  if (urlError) {
+    res.status(400).json({ error: urlError });
+    return;
+  }
+
+  const scrape = await scrapeUrl(listingUrl, listingType);
+  res.json(scrape);
 });
 
 // POST /listings
@@ -124,10 +176,11 @@ router.post("/listings", async (req, res): Promise<void> => {
     return;
   }
 
-  const { listingUrl, notes, personalRating, tags, interestLevel } = parsed.data;
+  const { listingUrl, notes, personalRating, tags, interestLevel, listingType } = parsed.data;
+  const effectiveListingType = listingType ?? "buy";
 
   // Validate URL is from an allowed source (SSRF prevention)
-  const urlError = validateListingUrl(listingUrl.trim());
+  const urlError = validateListingUrl(listingUrl.trim(), effectiveListingType);
   if (urlError) {
     res.status(400).json({ error: urlError });
     return;
@@ -151,6 +204,7 @@ router.post("/listings", async (req, res): Promise<void> => {
     .insert(listingsTable)
     .values({
       listingUrl: listingUrl.trim(),
+      listingType: effectiveListingType,
       notes: notes || null,
       personalRating: personalRating || null,
       tags: tags || null,
@@ -159,8 +213,20 @@ router.post("/listings", async (req, res): Promise<void> => {
     })
     .returning();
 
-  // Scrape asynchronously (don't block response)
-  scrapeUrl(listingUrl.trim())
+  // Rent listings skip the background scrape: the preview-extraction step already ran it,
+  // and the user's review PATCH will arrive momentarily with all locked fields.
+  // Running scrape again would race against that PATCH and could overwrite user edits.
+  if (effectiveListingType === "rent") {
+    const [freshRentListing] = await db
+      .select()
+      .from(listingsTable)
+      .where(eq(listingsTable.id, listing.id));
+    res.status(201).json(freshRentListing);
+    return;
+  }
+
+  // Scrape asynchronously (don't block response) — buy listings only
+  scrapeUrl(listingUrl.trim(), effectiveListingType)
     .then(async (result) => {
       if (result.success && result.data) {
         const data = result.data;
@@ -195,38 +261,59 @@ router.post("/listings", async (req, res): Promise<void> => {
           }
         }
 
+        const [currentListing] = await db
+          .select()
+          .from(listingsTable)
+          .where(eq(listingsTable.id, listing.id));
+        if (!currentListing) return;
+
+        const lockedFields = new Set<string>(JSON.parse(currentListing.lockedFields || "[]"));
+        const apply = <T>(field: string, incoming: T | null | undefined, existing: T | null) => {
+          if (lockedFields.has(field)) return existing;
+          return (incoming ?? existing) as T | null;
+        };
+
         await db
           .update(listingsTable)
           .set({
-            sourceSite: data.sourceSite,
-            externalListingId: data.externalListingId,
-            title: data.title,
-            address: data.address,
-            neighborhood: data.neighborhood,
-            city: data.city,
-            province: data.province,
-            postalCode: data.postalCode,
-            latitude: data.latitude,
-            longitude: data.longitude,
-            currentPrice: data.currentPrice,
-            currency: data.currency || "CAD",
-            bedrooms: data.bedrooms,
-            bathrooms: data.bathrooms,
-            squareFeet: data.squareFeet,
-            propertyType: data.propertyType,
-            floor: data.floor,
-            yearBuilt: data.yearBuilt,
-            condoFees: data.condoFees,
-            taxes: data.taxes,
-            parkingInfo: data.parkingInfo,
-            listingStatus: data.listingStatus || "active",
-            daysOnMarket: data.daysOnMarket,
-            description: data.description,
-            brokerName: data.brokerName,
-            brokerage: data.brokerage,
-            mainImageUrl: data.mainImageUrl,
-            allImageUrls: data.allImageUrls,
-            rawData: data.rawData,
+            sourceSite: apply("sourceSite", data.sourceSite, currentListing.sourceSite),
+            externalListingId: apply("externalListingId", data.externalListingId, currentListing.externalListingId),
+            title: apply("title", data.title, currentListing.title),
+            address: apply("address", data.address, currentListing.address),
+            neighborhood: apply("neighborhood", data.neighborhood, currentListing.neighborhood),
+            city: apply("city", data.city, currentListing.city),
+            province: apply("province", data.province, currentListing.province),
+            postalCode: apply("postalCode", data.postalCode, currentListing.postalCode),
+            latitude: apply("latitude", data.latitude, currentListing.latitude),
+            longitude: apply("longitude", data.longitude, currentListing.longitude),
+            currentPrice: apply("currentPrice", data.currentPrice, currentListing.currentPrice),
+            currency: apply("currency", data.currency || "CAD", currentListing.currency),
+            bedrooms: apply("bedrooms", data.bedrooms, currentListing.bedrooms),
+            bathrooms: apply("bathrooms", data.bathrooms, currentListing.bathrooms),
+            squareFeet: apply("squareFeet", data.squareFeet, currentListing.squareFeet),
+            propertyType: apply("propertyType", data.propertyType, currentListing.propertyType),
+            floor: apply("floor", data.floor, currentListing.floor),
+            yearBuilt: apply("yearBuilt", data.yearBuilt, currentListing.yearBuilt),
+            condoFees: apply("condoFees", data.condoFees, currentListing.condoFees),
+            taxes: apply("taxes", data.taxes, currentListing.taxes),
+            furnishedStatus: apply("furnishedStatus", data.furnishedStatus, currentListing.furnishedStatus),
+            leaseTerm: apply("leaseTerm", data.leaseTerm, currentListing.leaseTerm),
+            availableFrom: apply("availableFrom", data.availableFrom, currentListing.availableFrom),
+            petsAllowedInfo: apply("petsAllowedInfo", data.petsAllowedInfo, currentListing.petsAllowedInfo),
+            appliancesIncluded: apply("appliancesIncluded", data.appliancesIncluded, currentListing.appliancesIncluded),
+            airConditioning: apply("airConditioning", data.airConditioning, currentListing.airConditioning),
+            extractionConfidence: apply("extractionConfidence", data.extractionConfidence, currentListing.extractionConfidence),
+            extractionWarnings: apply("extractionWarnings", data.extractionWarnings, currentListing.extractionWarnings),
+            rawContent: apply("rawContent", data.rawContent, currentListing.rawContent),
+            parkingInfo: apply("parkingInfo", data.parkingInfo, currentListing.parkingInfo),
+            listingStatus: apply("listingStatus", data.listingStatus || "active", currentListing.listingStatus),
+            daysOnMarket: apply("daysOnMarket", data.daysOnMarket, currentListing.daysOnMarket),
+            description: apply("description", data.description, currentListing.description),
+            brokerName: apply("brokerName", data.brokerName, currentListing.brokerName),
+            brokerage: apply("brokerage", data.brokerage, currentListing.brokerage),
+            mainImageUrl: apply("mainImageUrl", data.mainImageUrl, currentListing.mainImageUrl),
+            allImageUrls: apply("allImageUrls", data.allImageUrls, currentListing.allImageUrls),
+            rawData: apply("rawData", data.rawData, currentListing.rawData),
             lastCheckedAt: new Date(),
           })
           .where(eq(listingsTable.id, listing.id));
@@ -242,7 +329,7 @@ router.post("/listings", async (req, res): Promise<void> => {
 
         // Compute nearest metro station
         try {
-          const metro = await computeMetroProximity(data.latitude, data.longitude, data.address);
+          const metro = await computeMetroProximity(data.latitude, data.longitude, data.address, data.city, data.province);
           if (metro) {
             await db
               .update(listingsTable)
@@ -294,7 +381,7 @@ router.get("/listings/recent-price-changes", async (req, res): Promise<void> => 
     .orderBy(desc(listingChangesTable.changedAt));
 
   const seen = new Set<number>();
-  const result = changes.filter((c) => {
+  const result = changes.filter((c: (typeof changes)[number]) => {
     if (seen.has(c.listingId)) return false;
     seen.add(c.listingId);
     return true;
@@ -338,8 +425,20 @@ router.patch("/listings/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  const updateData: Record<string, unknown> = {};
   const b = body.data;
+
+  // Read the pre-update record so we can detect real address changes and current status.
+  const [preListing] = await db
+    .select()
+    .from(listingsTable)
+    .where(eq(listingsTable.id, params.data.id));
+
+  if (!preListing) {
+    res.status(404).json({ error: "Listing not found" });
+    return;
+  }
+
+  const updateData: Record<string, unknown> = {};
   if (b.personalRating !== undefined) updateData.personalRating = b.personalRating;
   if (b.interestLevel !== undefined) updateData.interestLevel = b.interestLevel;
   if (b.notes !== undefined) updateData.notes = b.notes;
@@ -348,6 +447,27 @@ router.patch("/listings/:id", async (req, res): Promise<void> => {
   if (b.favorite !== undefined) updateData.favorite = b.favorite;
   if (b.visitNext !== undefined) updateData.visitNext = b.visitNext;
   if (b.visited !== undefined) updateData.visited = b.visited;
+  if (b.bedrooms !== undefined) updateData.bedrooms = b.bedrooms;
+  if (b.bathrooms !== undefined) updateData.bathrooms = b.bathrooms;
+  if (b.squareFeet !== undefined) updateData.squareFeet = b.squareFeet;
+  if (b.furnishedStatus !== undefined) updateData.furnishedStatus = b.furnishedStatus;
+  if (b.leaseTerm !== undefined) updateData.leaseTerm = b.leaseTerm;
+  if (b.availableFrom !== undefined) updateData.availableFrom = b.availableFrom;
+  if (b.petsAllowedInfo !== undefined) updateData.petsAllowedInfo = b.petsAllowedInfo;
+  if (b.appliancesIncluded !== undefined) updateData.appliancesIncluded = b.appliancesIncluded;
+  if (b.airConditioning !== undefined) updateData.airConditioning = b.airConditioning;
+  if (b.currentPrice !== undefined) updateData.currentPrice = b.currentPrice;
+  if (b.address !== undefined) updateData.address = b.address;
+  if (b.neighborhood !== undefined) updateData.neighborhood = b.neighborhood;
+  if (b.parkingInfo !== undefined) updateData.parkingInfo = b.parkingInfo;
+  if (b.nearestMetro !== undefined) updateData.nearestMetro = b.nearestMetro;
+  if (b.lockedFields !== undefined) {
+    updateData.lockedFields = JSON.stringify(b.lockedFields ?? []);
+    // When locked fields arrive (review save), activate a rent listing that is still "checking"
+    if (preListing.listingStatus === "checking" && preListing.listingType === "rent") {
+      updateData.listingStatus = "active";
+    }
+  }
 
   const [listing] = await db
     .update(listingsTable)
@@ -358,6 +478,39 @@ router.patch("/listings/:id", async (req, res): Promise<void> => {
   if (!listing) {
     res.status(404).json({ error: "Listing not found" });
     return;
+  }
+
+  // Recompute metro when address actually changed (compare to pre-update value),
+  // or when nearestMetro is explicitly cleared.
+  const newAddress = b.address;
+  const oldAddress = preListing.address;
+  const addressActuallyChanged =
+    newAddress !== undefined &&
+    newAddress !== null &&
+    newAddress.trim() !== "" &&
+    newAddress.trim() !== (oldAddress ?? "").trim();
+  const metroExplicitlyCleared = b.nearestMetro === null || b.nearestMetro === "";
+  if (addressActuallyChanged || metroExplicitlyCleared) {
+    try {
+      const metro = await computeMetroProximity(
+        listing.latitude,
+        listing.longitude,
+        listing.address,
+        listing.city,
+        listing.province,
+      );
+      if (metro) {
+        const [metroUpdated] = await db
+          .update(listingsTable)
+          .set({ nearestMetro: metro.name, walkingMinutes: metro.walkingMinutes })
+          .where(eq(listingsTable.id, params.data.id))
+          .returning();
+        res.json(metroUpdated);
+        return;
+      }
+    } catch (err) {
+      logger.warn({ id: listing.id, err }, "Metro recomputation after update failed");
+    }
   }
 
   res.json(listing);

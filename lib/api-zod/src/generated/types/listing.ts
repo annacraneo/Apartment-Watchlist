@@ -5,12 +5,14 @@
  * Apartment Watchlist API
  * OpenAPI spec version: 0.1.0
  */
+import type { ListingListingType } from "./listingListingType";
 
 export interface Listing {
   id: number;
   listingUrl: string;
   /** @nullable */
   sourceSite?: string | null;
+  listingType: ListingListingType;
   /** @nullable */
   externalListingId?: string | null;
   /** @nullable */
@@ -54,7 +56,30 @@ export interface Listing {
   /** @nullable */
   taxes?: string | null;
   /** @nullable */
+  furnishedStatus?: string | null;
+  /** @nullable */
+  leaseTerm?: string | null;
+  /** @nullable */
+  availableFrom?: string | null;
+  /** @nullable */
+  petsAllowedInfo?: string | null;
+  /** @nullable */
+  appliancesIncluded?: string | null;
+  /** @nullable */
+  airConditioning?: string | null;
+  /** @nullable */
+  extractionConfidence?: number | null;
+  /** @nullable */
+  extractionWarnings?: string | null;
+  /** @nullable */
+  rawContent?: string | null;
+  lockedFields?: string;
+  /** @nullable */
   parkingInfo?: string | null;
+  /** @nullable */
+  nearestMetro?: string | null;
+  /** @nullable */
+  walkingMinutes?: number | null;
   /** @nullable */
   listingStatus?: string | null;
   /** @nullable */

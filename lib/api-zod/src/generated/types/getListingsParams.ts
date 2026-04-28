@@ -5,6 +5,7 @@
  * Apartment Watchlist API
  * OpenAPI spec version: 0.1.0
  */
+import type { GetListingsListingType } from "./getListingsListingType";
 
 export type GetListingsParams = {
   /**
@@ -14,7 +15,23 @@ export type GetListingsParams = {
   /**
    * @nullable
    */
+  listingType?: GetListingsListingType;
+  /**
+   * @nullable
+   */
   status?: string | null;
+  /**
+   * @nullable
+   */
+  maxRent?: string | null;
+  /**
+   * @nullable
+   */
+  petsAllowed?: string | null;
+  /**
+   * @nullable
+   */
+  availableBy?: string | null;
   /**
    * @nullable
    */

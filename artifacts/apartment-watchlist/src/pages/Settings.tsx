@@ -37,7 +37,10 @@ const settingsSchema = z.object({
   browseAiRobotId: z.string().optional(),
   browseAiWebhookSecret: z.string().optional(),
   notifyOnPriceDrop: z.boolean(),
+  notifyOnStatusChange: z.boolean(),
   notifyOnUnavailable: z.boolean(),
+  llmProvider: z.enum(["disabled", "ollama", "openai_compatible"]),
+  llmModel: z.string().optional(),
 });
 
 export default function Settings() {
@@ -54,7 +57,10 @@ export default function Settings() {
       browseAiRobotId: "",
       browseAiWebhookSecret: "",
       notifyOnPriceDrop: true,
+      notifyOnStatusChange: true,
       notifyOnUnavailable: true,
+      llmProvider: "disabled",
+      llmModel: "qwen2.5:7b-instruct",
     },
   });
 
@@ -67,7 +73,10 @@ export default function Settings() {
         browseAiRobotId: settings.browseAiRobotId || "",
         browseAiWebhookSecret: settings.browseAiWebhookSecret || "",
         notifyOnPriceDrop: settings.notifyOnPriceDrop,
+        notifyOnStatusChange: settings.notifyOnStatusChange,
         notifyOnUnavailable: settings.notifyOnUnavailable,
+        llmProvider: settings.llmProvider ?? "disabled",
+        llmModel: settings.llmModel || "qwen2.5:7b-instruct",
       });
     }
   }, [settings, form]);
@@ -172,6 +181,54 @@ export default function Settings() {
 
               <Separator />
 
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <FormField
+                  control={form.control}
+                  name="llmProvider"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Rent LLM Provider</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value ?? "disabled"} defaultValue="disabled">
+                        <FormControl>
+                          <SelectTrigger data-testid="select-llm-provider">
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="disabled">Disabled (heuristic only)</SelectItem>
+                          <SelectItem value="ollama">Ollama (Local)</SelectItem>
+                          <SelectItem value="openai_compatible">OpenAI-Compatible</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>
+                        Choose which LLM runtime is used for rent extraction when heuristics are low confidence.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="llmModel"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>LLM Model</FormLabel>
+                      <FormControl>
+                        <Input placeholder="qwen2.5:7b-instruct" {...field} data-testid="input-llm-model" />
+                      </FormControl>
+                      <FormDescription>
+                        For Ollama, use local model tag (recommended: qwen2.5:7b-instruct).
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <p className="text-sm text-muted-foreground">
+                Ollama local default endpoint is <code>http://127.0.0.1:11434/v1</code>. Ensure Ollama is running and the model is pulled.
+              </p>
+
               {/* Browse AI credentials — shown when mode is browse_ai OR when creds already exist */}
               {showBrowseAiPanel && (
                 <Card className="border-primary/50">
@@ -258,6 +315,21 @@ export default function Settings() {
                     </div>
                     <FormControl>
                       <Switch checked={field.value} onCheckedChange={field.onChange} data-testid="toggle-notify-price" />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="notifyOnStatusChange"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 bg-background shadow-sm">
+                    <div className="space-y-0.5">
+                      <FormLabel className="text-base font-semibold">Status Changes</FormLabel>
+                      <FormDescription>Create a notification when listing status changes between active/inactive.</FormDescription>
+                    </div>
+                    <FormControl>
+                      <Switch checked={field.value} onCheckedChange={field.onChange} />
                     </FormControl>
                   </FormItem>
                 )}

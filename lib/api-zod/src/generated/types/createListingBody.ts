@@ -5,9 +5,12 @@
  * Apartment Watchlist API
  * OpenAPI spec version: 0.1.0
  */
+import type { CreateListingBodyListingType } from "./createListingBodyListingType";
 
 export interface CreateListingBody {
   listingUrl: string;
+  /** @nullable */
+  listingType?: CreateListingBodyListingType;
   /** @nullable */
   notes?: string | null;
   /** @nullable */

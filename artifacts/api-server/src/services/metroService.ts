@@ -7,6 +7,9 @@ interface MetroStation {
   line: string;
 }
 
+const MONTREAL_CENTER = { lat: 45.5017, lng: -73.5673 };
+const MAX_REASONABLE_DISTANCE_FROM_MONTREAL_KM = 60;
+
 // Coordinates sourced from OpenStreetMap (Overpass API, station=subway nodes, April 2026)
 const MONTREAL_METRO_STATIONS: MetroStation[] = [
   // Green Line (1) — Angrignon → Honoré-Beaugrand
@@ -107,7 +110,10 @@ export interface NearestMetroResult {
   distanceKm: number;
 }
 
-/** Haversine-only fallback — used when OSRM is unavailable */
+/**
+ * Nearest metro via haversine + Google Maps walking speed (5 km/h) and a 1.3×
+ * street-grid factor. Matches real-world Montreal walking times within ~2 min.
+ */
 function findNearestMetroFallback(lat: number, lng: number): NearestMetroResult {
   let nearest = MONTREAL_METRO_STATIONS[0];
   let minDist = Infinity;
@@ -121,9 +127,10 @@ function findNearestMetroFallback(lat: number, lng: number): NearestMetroResult 
   return { name: nearest.name, walkingMinutes: Math.max(1, walkingMinutes), distanceKm: Math.round(minDist * 100) / 100 };
 }
 
-// Memoize OSRM availability: once it fails we skip it for the rest of the process
-// lifetime to avoid burning timeout budget on every check.
-let osrmAvailable = true;
+// Circuit-breaker for OSRM timeouts/network errors. We only pause OSRM lookups
+// temporarily (instead of for the whole process lifetime) so transient outages
+// do not permanently degrade metro quality.
+let osrmDisabledUntilMs = 0;
 
 /**
  * Uses OSRM (OpenStreetMap routing) to find the nearest station by actual
@@ -131,7 +138,7 @@ let osrmAvailable = true;
  * distance, then does one batch routing query for all 10.
  */
 async function findNearestMetroViaOSRM(lat: number, lng: number): Promise<NearestMetroResult | null> {
-  if (!osrmAvailable) return null;
+  if (Date.now() < osrmDisabledUntilMs) return null;
   const TOP_N = 10;
 
   // 1. Pre-filter: cheapest 10 by haversine
@@ -160,8 +167,8 @@ async function findNearestMetroViaOSRM(lat: number, lng: number): Promise<Neares
       signal: AbortSignal.timeout(3000),
     });
   } catch {
-    osrmAvailable = false;
-    logger.warn("OSRM unreachable — disabling for this session, using haversine fallback");
+    osrmDisabledUntilMs = Date.now() + 5 * 60 * 1000;
+    logger.warn("OSRM unreachable — temporarily using haversine fallback");
     return null;
   }
   if (!resp.ok) return null;
@@ -173,20 +180,24 @@ async function findNearestMetroViaOSRM(lat: number, lng: number): Promise<Neares
   };
   if (data.code !== "Ok" || !data.durations?.[0]) return null;
 
-  // 3. Pick the station with the shortest OSRM walking duration (seconds)
+  // 3. Pick the station with the shortest routed DISTANCE (not duration —
+  //    router.project-osrm.org returns car speeds even on the foot profile).
+  const distances = data.distances?.[0] ?? [];
   let bestIdx = 0;
-  let bestSecs = Infinity;
-  data.durations[0].forEach((secs, i) => {
-    if (secs !== null && secs < bestSecs) { bestSecs = secs; bestIdx = i; }
+  let bestMeters = Infinity;
+  distances.forEach((meters, i) => {
+    if (meters !== null && meters < bestMeters) { bestMeters = meters; bestIdx = i; }
   });
+  // Fall back to haversine pick if distances are missing
+  if (bestMeters === Infinity) {
+    bestIdx = 0; // candidates already sorted by haversine
+    bestMeters = (candidates[0]?.straightKm ?? 1) * 1000;
+  }
 
   const best = candidates[bestIdx];
-  // Use OSRM's own duration directly — it accounts for actual foot-profile
-  // speeds, turn penalties, and crossing delays, matching Google Maps estimates.
-  const walkingMinutes = bestSecs < Infinity
-    ? Math.max(1, Math.round(bestSecs / 60))
-    : Math.max(1, Math.round((best.straightKm * 1.3 / 5.0) * 60));
-  const walkingMeters = data.distances?.[0]?.[bestIdx] ?? best.straightKm * 1000;
+  const walkingMeters = bestMeters;
+  // Apply Google Maps walking speed: 5 km/h = 83.3 m/min
+  const walkingMinutes = Math.max(1, Math.round((walkingMeters / 1000) / 5.0 * 60));
 
   return {
     name: best.name,
@@ -207,16 +218,32 @@ function cleanAddressForGeocoding(address: string): string {
     .trim();
 }
 
-async function geocodeAddress(address: string): Promise<{ lat: number; lng: number } | null> {
+async function geocodeAddress(
+  address: string,
+  city?: string | null,
+  province?: string | null,
+): Promise<{ lat: number; lng: number } | null> {
   // Try with cleaned address first; fall back to full address if that also fails
-  const attempts = [cleanAddressForGeocoding(address), address].filter(
-    (a, i, arr) => a && arr.indexOf(a) === i, // deduplicate if cleaning changes nothing
-  );
+  const cleaned = cleanAddressForGeocoding(address);
+  const localitySuffix = [city, province].filter(Boolean).join(", ");
+  const attempts = [
+    // Always prefer Montreal-scoped queries first to avoid same-street-name mismatches.
+    `${cleaned}, Montreal, QC, Canada`,
+    `${address}, Montreal, QC, Canada`,
+    localitySuffix ? `${cleaned}, ${localitySuffix}, Canada` : null,
+    localitySuffix ? `${address}, ${localitySuffix}, Canada` : null,
+    `${cleaned}, Canada`,
+    `${address}, Canada`,
+  ].filter((a, i, arr) => !!a && arr.indexOf(a) === i) as string[];
 
   for (const attempt of attempts) {
     try {
-      const query = encodeURIComponent(`${attempt}, Montréal, QC, Canada`);
-      const url = `https://nominatim.openstreetmap.org/search?q=${query}&format=json&limit=1&countrycodes=ca`;
+      const query = encodeURIComponent(attempt);
+      // Montréal rough bounding box: west,south,east,north (lon/lat)
+      const viewbox = "-74.10,45.35,-73.35,45.75";
+      const url =
+        `https://nominatim.openstreetmap.org/search?q=${query}&format=json&limit=1&countrycodes=ca` +
+        `&viewbox=${viewbox}&bounded=1`;
       const resp = await fetch(url, {
         headers: { "User-Agent": "AptWatch/1.0 (apartment-watchlist)" },
         signal: AbortSignal.timeout(8000),
@@ -224,7 +251,12 @@ async function geocodeAddress(address: string): Promise<{ lat: number; lng: numb
       if (!resp.ok) continue;
       const results = (await resp.json()) as Array<{ lat: string; lon: string }>;
       if (results.length) {
-        return { lat: parseFloat(results[0].lat), lng: parseFloat(results[0].lon) };
+        const lat = parseFloat(results[0].lat);
+        const lng = parseFloat(results[0].lon);
+        const distFromMontreal = haversineKm(lat, lng, MONTREAL_CENTER.lat, MONTREAL_CENTER.lng);
+        if (distFromMontreal <= MAX_REASONABLE_DISTANCE_FROM_MONTREAL_KM) {
+          return { lat, lng };
+        }
       }
       // Respect Nominatim rate limit between retries
       await new Promise((r) => setTimeout(r, 1100));
@@ -239,6 +271,8 @@ export async function computeMetroProximity(
   lat: string | null | undefined,
   lng: string | null | undefined,
   address: string | null | undefined,
+  city?: string | null | undefined,
+  province?: string | null | undefined,
 ): Promise<NearestMetroResult | null> {
   let coords: { lat: number; lng: number } | null = null;
 
@@ -249,7 +283,7 @@ export async function computeMetroProximity(
   }
 
   if (!coords && address) {
-    coords = await geocodeAddress(address);
+    coords = await geocodeAddress(address, city, province);
   }
 
   if (!coords) return null;

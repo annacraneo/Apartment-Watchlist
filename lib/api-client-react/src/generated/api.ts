@@ -19,6 +19,8 @@ import type {
 import type {
   AppSettings,
   BrowseAiWebhookBody,
+  BulkDeleteListings200,
+  BulkDeleteListingsBody,
   CheckAllResponse,
   CheckListingResponse,
   CreateListingBody,
@@ -378,6 +380,92 @@ export const useCheckAllListings = <
   TContext
 > => {
   return useMutation(getCheckAllListingsMutationOptions(options));
+};
+
+/**
+ * @summary Delete multiple listings by ID
+ */
+export const getBulkDeleteListingsUrl = () => {
+  return `/api/listings/bulk-delete`;
+};
+
+export const bulkDeleteListings = async (
+  bulkDeleteListingsBody: BulkDeleteListingsBody,
+  options?: RequestInit,
+): Promise<BulkDeleteListings200> => {
+  return customFetch<BulkDeleteListings200>(getBulkDeleteListingsUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(bulkDeleteListingsBody),
+  });
+};
+
+export const getBulkDeleteListingsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof bulkDeleteListings>>,
+    TError,
+    { data: BodyType<BulkDeleteListingsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof bulkDeleteListings>>,
+  TError,
+  { data: BodyType<BulkDeleteListingsBody> },
+  TContext
+> => {
+  const mutationKey = ["bulkDeleteListings"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof bulkDeleteListings>>,
+    { data: BodyType<BulkDeleteListingsBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return bulkDeleteListings(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type BulkDeleteListingsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof bulkDeleteListings>>
+>;
+export type BulkDeleteListingsMutationBody = BodyType<BulkDeleteListingsBody>;
+export type BulkDeleteListingsMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Delete multiple listings by ID
+ */
+export const useBulkDeleteListings = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof bulkDeleteListings>>,
+    TError,
+    { data: BodyType<BulkDeleteListingsBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof bulkDeleteListings>>,
+  TError,
+  { data: BodyType<BulkDeleteListingsBody> },
+  TContext
+> => {
+  return useMutation(getBulkDeleteListingsMutationOptions(options));
 };
 
 /**

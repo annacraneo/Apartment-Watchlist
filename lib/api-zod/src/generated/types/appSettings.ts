@@ -5,6 +5,7 @@
  * Apartment Watchlist API
  * OpenAPI spec version: 0.1.0
  */
+import type { AppSettingsLlmProvider } from "./appSettingsLlmProvider";
 
 export interface AppSettings {
   checkIntervalHours: number;
@@ -22,4 +23,7 @@ export interface AppSettings {
   notifyOnPriceDrop: boolean;
   notifyOnStatusChange: boolean;
   notifyOnUnavailable: boolean;
+  llmProvider: AppSettingsLlmProvider;
+  /** @nullable */
+  llmModel?: string | null;
 }

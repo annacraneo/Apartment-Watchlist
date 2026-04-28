@@ -52,6 +52,12 @@ const TRACKED_FIELDS: Array<{
   { field: "squareFeet", changeTypeFn: () => "metadata_change" },
   { field: "condoFees", changeTypeFn: () => "metadata_change" },
   { field: "taxes", changeTypeFn: () => "metadata_change" },
+  { field: "furnishedStatus", changeTypeFn: () => "metadata_change" },
+  { field: "leaseTerm", changeTypeFn: () => "metadata_change" },
+  { field: "availableFrom", changeTypeFn: () => "metadata_change" },
+  { field: "petsAllowedInfo", changeTypeFn: () => "metadata_change" },
+  { field: "appliancesIncluded", changeTypeFn: () => "metadata_change" },
+  { field: "airConditioning", changeTypeFn: () => "metadata_change" },
   { field: "daysOnMarket", changeTypeFn: () => "metadata_change" },
   { field: "brokerName", changeTypeFn: () => "metadata_change" },
 ];

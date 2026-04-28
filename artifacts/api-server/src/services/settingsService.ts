@@ -13,6 +13,8 @@ const DEFAULT_SETTINGS = {
   notifyOnPriceDrop: true,
   notifyOnStatusChange: true,
   notifyOnUnavailable: true,
+  llmProvider: "disabled" as "disabled" | "ollama" | "openai_compatible",
+  llmModel: "qwen2.5:7b-instruct" as string | null,
 };
 
 type Settings = typeof DEFAULT_SETTINGS;
@@ -28,6 +30,8 @@ const KEY_MAP: Record<keyof Settings, string> = {
   notifyOnPriceDrop: "notify_on_price_drop",
   notifyOnStatusChange: "notify_on_status_change",
   notifyOnUnavailable: "notify_on_unavailable",
+  llmProvider: "llm_provider",
+  llmModel: "llm_model",
 };
 
 export async function getSettings(): Promise<Settings> {
@@ -48,6 +52,11 @@ export async function getSettings(): Promise<Settings> {
     notifyOnPriceDrop: map[KEY_MAP.notifyOnPriceDrop] !== "false",
     notifyOnStatusChange: map[KEY_MAP.notifyOnStatusChange] !== "false",
     notifyOnUnavailable: map[KEY_MAP.notifyOnUnavailable] !== "false",
+    llmProvider:
+      map[KEY_MAP.llmProvider] === "ollama" || map[KEY_MAP.llmProvider] === "openai_compatible"
+        ? (map[KEY_MAP.llmProvider] as "ollama" | "openai_compatible")
+        : "disabled",
+    llmModel: map[KEY_MAP.llmModel] || DEFAULT_SETTINGS.llmModel,
   };
 }
 

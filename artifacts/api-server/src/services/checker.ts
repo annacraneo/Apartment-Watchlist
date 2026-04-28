@@ -35,7 +35,10 @@ export async function checkListing(
 
   logger.info({ listingId, url: listing.listingUrl }, "Checking listing");
 
-  const scrapeResult = await scrapeUrl(listing.listingUrl);
+  const scrapeResult = await scrapeUrl(
+    listing.listingUrl,
+    listing.listingType === "rent" ? "rent" : "buy",
+  );
 
   // Load notification preferences if not provided (single-listing check path)
   let prefs = notifyPrefs;
@@ -143,45 +146,73 @@ export async function checkListing(
 
   // Update listing with new extracted data
   const newData = scrapeResult.data;
+  const lockedFields = new Set<string>(JSON.parse(listing.lockedFields || "[]"));
   const previousPrice = listing.currentPrice;
-  const newPrice = newData.currentPrice;
+  const newPrice = lockedFields.has("currentPrice")
+    ? listing.currentPrice
+    : newData.currentPrice;
+  const lockedConflicts: string[] = [];
+  const apply = <T>(field: string, incoming: T | null | undefined, existing: T | null) => {
+    if (lockedFields.has(field)) {
+      if (incoming != null && incoming !== existing) lockedConflicts.push(field);
+      return existing;
+    }
+    return (incoming ?? existing) as T | null;
+  };
 
   await db
     .update(listingsTable)
     .set({
-      sourceSite: newData.sourceSite ?? listing.sourceSite,
-      title: newData.title ?? listing.title,
-      address: newData.address ?? listing.address,
-      neighborhood: newData.neighborhood ?? listing.neighborhood,
-      city: newData.city ?? listing.city,
-      province: newData.province ?? listing.province,
-      postalCode: newData.postalCode ?? listing.postalCode,
-      latitude: newData.latitude ?? listing.latitude,
-      longitude: newData.longitude ?? listing.longitude,
+      sourceSite: apply("sourceSite", newData.sourceSite, listing.sourceSite),
+      title: apply("title", newData.title, listing.title),
+      address: apply("address", newData.address, listing.address),
+      neighborhood: apply("neighborhood", newData.neighborhood, listing.neighborhood),
+      city: apply("city", newData.city, listing.city),
+      province: apply("province", newData.province, listing.province),
+      postalCode: apply("postalCode", newData.postalCode, listing.postalCode),
+      latitude: apply("latitude", newData.latitude, listing.latitude),
+      longitude: apply("longitude", newData.longitude, listing.longitude),
       previousPrice: previousPrice,
-      currentPrice: newPrice ?? listing.currentPrice,
+      currentPrice: newPrice,
       priceDelta: computePriceDelta(newPrice, previousPrice),
-      currency: newData.currency ?? listing.currency,
-      bedrooms: newData.bedrooms ?? listing.bedrooms,
-      bathrooms: newData.bathrooms ?? listing.bathrooms,
-      squareFeet: newData.squareFeet ?? listing.squareFeet,
-      propertyType: newData.propertyType ?? listing.propertyType,
-      floor: newData.floor ?? listing.floor,
-      yearBuilt: newData.yearBuilt ?? listing.yearBuilt,
-      condoFees: newData.condoFees ?? listing.condoFees,
-      taxes: newData.taxes ?? listing.taxes,
-      parkingInfo: newData.parkingInfo ?? listing.parkingInfo,
-      listingStatus: newData.listingStatus ?? listing.listingStatus,
-      daysOnMarket: newData.daysOnMarket ?? listing.daysOnMarket,
-      description: newData.description ?? listing.description,
-      brokerName: newData.brokerName ?? listing.brokerName,
-      brokerage: newData.brokerage ?? listing.brokerage,
-      mainImageUrl: newData.mainImageUrl ?? listing.mainImageUrl,
-      allImageUrls: newData.allImageUrls ?? listing.allImageUrls,
-      rawData: newData.rawData ?? listing.rawData,
+      currency: apply("currency", newData.currency, listing.currency),
+      bedrooms: apply("bedrooms", newData.bedrooms, listing.bedrooms),
+      bathrooms: apply("bathrooms", newData.bathrooms, listing.bathrooms),
+      squareFeet: apply("squareFeet", newData.squareFeet, listing.squareFeet),
+      propertyType: apply("propertyType", newData.propertyType, listing.propertyType),
+      floor: apply("floor", newData.floor, listing.floor),
+      yearBuilt: apply("yearBuilt", newData.yearBuilt, listing.yearBuilt),
+      condoFees: apply("condoFees", newData.condoFees, listing.condoFees),
+      taxes: apply("taxes", newData.taxes, listing.taxes),
+      furnishedStatus: apply("furnishedStatus", newData.furnishedStatus, listing.furnishedStatus),
+      leaseTerm: apply("leaseTerm", newData.leaseTerm, listing.leaseTerm),
+      availableFrom: apply("availableFrom", newData.availableFrom, listing.availableFrom),
+      petsAllowedInfo: apply("petsAllowedInfo", newData.petsAllowedInfo, listing.petsAllowedInfo),
+      appliancesIncluded: apply("appliancesIncluded", newData.appliancesIncluded, listing.appliancesIncluded),
+      airConditioning: apply("airConditioning", newData.airConditioning, listing.airConditioning),
+      extractionConfidence: apply("extractionConfidence", newData.extractionConfidence, listing.extractionConfidence),
+      extractionWarnings: apply("extractionWarnings", newData.extractionWarnings, listing.extractionWarnings),
+      rawContent: apply("rawContent", newData.rawContent, listing.rawContent),
+      parkingInfo: apply("parkingInfo", newData.parkingInfo, listing.parkingInfo),
+      listingStatus: apply("listingStatus", newData.listingStatus, listing.listingStatus),
+      daysOnMarket: apply("daysOnMarket", newData.daysOnMarket, listing.daysOnMarket),
+      description: apply("description", newData.description, listing.description),
+      brokerName: apply("brokerName", newData.brokerName, listing.brokerName),
+      brokerage: apply("brokerage", newData.brokerage, listing.brokerage),
+      mainImageUrl: apply("mainImageUrl", newData.mainImageUrl, listing.mainImageUrl),
+      allImageUrls: apply("allImageUrls", newData.allImageUrls, listing.allImageUrls),
+      rawData: apply("rawData", newData.rawData, listing.rawData),
       lastCheckedAt: new Date(),
     })
     .where(eq(listingsTable.id, listingId));
+
+  if (lockedConflicts.length > 0) {
+    await createNotification(
+      listingId,
+      "locked_field_conflict",
+      `New extraction differs from locked fields: ${lockedConflicts.join(", ")}. Keeping your manual values.`,
+    );
+  }
 
   // Always recompute metro proximity so walking times stay accurate across
   // algorithm improvements and coordinate updates. Haversine is instant;
@@ -191,6 +222,8 @@ export async function checkListing(
       newData.latitude ?? listing.latitude,
       newData.longitude ?? listing.longitude,
       newData.address ?? listing.address,
+      newData.city ?? listing.city,
+      newData.province ?? listing.province,
     );
     if (metro) {
       await db

@@ -5,8 +5,10 @@
  * Apartment Watchlist API
  * OpenAPI spec version: 0.1.0
  */
+import type { CheckAllResponseChangesItem } from "./checkAllResponseChangesItem";
 
 export interface CheckAllResponse {
   checked: number;
   totalChanges: number;
+  changes: CheckAllResponseChangesItem[];
 }

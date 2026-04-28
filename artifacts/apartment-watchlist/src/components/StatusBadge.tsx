@@ -13,6 +13,10 @@ export function StatusBadge({ status }: { status: string | null | undefined }) {
     case "active":
       className = "bg-green-500/10 text-green-500 hover:bg-green-500/20 border-green-500/20";
       break;
+    case "checking":
+      className = "bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 border-blue-500/20";
+      label = "LOADING";
+      break;
     case "sold":
       className = "bg-gray-500/10 text-gray-500 hover:bg-gray-500/20 border-gray-500/20";
       break;

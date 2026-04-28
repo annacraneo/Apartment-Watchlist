@@ -23,4 +23,36 @@ export interface UpdateListingBody {
   visitNext?: boolean | null;
   /** @nullable */
   visited?: boolean | null;
+  /** @nullable */
+  bedrooms?: number | null;
+  /** @nullable */
+  bathrooms?: number | null;
+  /** @nullable */
+  squareFeet?: number | null;
+  /** @nullable */
+  furnishedStatus?: string | null;
+  /** @nullable */
+  leaseTerm?: string | null;
+  /** @nullable */
+  availableFrom?: string | null;
+  /** @nullable */
+  petsAllowedInfo?: string | null;
+  /** @nullable */
+  appliancesIncluded?: string | null;
+  /** @nullable */
+  airConditioning?: string | null;
+  /** @nullable */
+  parkingInfo?: string | null;
+  /** @nullable */
+  floor?: string | null;
+  /** @nullable */
+  nearestMetro?: string | null;
+  /** @nullable */
+  currentPrice?: string | null;
+  /** @nullable */
+  address?: string | null;
+  /** @nullable */
+  neighborhood?: string | null;
+  /** @nullable */
+  lockedFields?: string[] | null;
 }
