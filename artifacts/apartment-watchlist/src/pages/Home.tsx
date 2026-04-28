@@ -463,12 +463,13 @@ export default function Home() {
     sortDir,
   };
 
-  const { data: allListings, isLoading: isLoadingListings } = useGetListings(queryParams, {
+  const { data: allListingsData, isLoading: isLoadingListings } = useGetListings(queryParams, {
     query: {
       queryKey: getGetListingsQueryKey(queryParams),
       refetchInterval: 60000,
     },
   });
+  const allListings = Array.isArray(allListingsData) ? allListingsData : [];
 
   const { data: priceHistory } = useQuery<PriceChange[]>({
     queryKey: ["recent-price-changes"],
@@ -487,7 +488,6 @@ export default function Home() {
   }, [priceHistory]);
 
   const listings = useMemo(() => {
-    if (!allListings) return [];
     let filtered = allListings.filter((l) => {
       if (boroughs.length > 0 && !boroughs.includes(l.neighborhood || "")) return false;
       if (parkingInfos.length > 0 && !parkingInfos.includes(l.parkingInfo || "")) return false;

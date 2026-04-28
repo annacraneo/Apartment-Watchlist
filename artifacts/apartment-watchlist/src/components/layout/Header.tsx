@@ -24,11 +24,13 @@ import { useTheme } from "@/hooks/use-theme";
 export function Header() {
   const queryClient = useQueryClient();
   const { theme, toggle } = useTheme();
+  const financeHubUrl = import.meta.env.VITE_FINANCE_HUB_URL;
   const notifParams = { unreadOnly: "true" } as const;
-  const { data: notifications = [] } = useGetNotifications(
+  const { data: notificationsData } = useGetNotifications(
     notifParams,
     { query: { queryKey: getGetNotificationsQueryKey(notifParams), refetchInterval: 30000 } }
   );
+  const notifications = Array.isArray(notificationsData) ? notificationsData : [];
 
   const markAllRead = useMarkAllNotificationsRead({
     mutation: {
@@ -55,15 +57,17 @@ export function Header() {
             APT.WATCH
           </Link>
           <nav className="hidden md:flex items-center space-x-4 text-sm">
-            <a
-              href="https://finance-hub--annakaravaykina.replit.app"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Finance Hub
-              <ExternalLink className="w-3 h-3" />
-            </a>
+            {financeHubUrl ? (
+              <a
+                href={financeHubUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Finance Hub
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            ) : null}
             <Link href="/settings" className="text-muted-foreground hover:text-foreground transition-colors" data-testid="link-settings">Settings</Link>
           </nav>
         </div>
