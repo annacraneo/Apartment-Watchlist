@@ -10,12 +10,24 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-// Strip the sslmode param from the connection string so pg doesn't get confused,
-// and instead pass ssl explicitly — required for Neon and other hosted Postgres.
-const connString = (process.env.DATABASE_URL ?? "").replace(/[?&]sslmode=[^&]*/g, "");
+const rawUrl = process.env.DATABASE_URL ?? "";
+
+// Determine whether SSL should be used.
+// Replit's built-in Postgres (host: helium) does not support SSL.
+// Hosted providers like Neon, Supabase, etc. require it.
+// We use SSL only when the URL explicitly requests it (sslmode=require/verify-*)
+// or when the host looks like a cloud database (contains dots, e.g. neon.tech).
+const pgHost = process.env.PGHOST ?? "";
+const requiresSsl =
+  rawUrl.includes("sslmode=require") ||
+  rawUrl.includes("sslmode=verify") ||
+  (pgHost.includes(".") && !pgHost.startsWith("127.") && pgHost !== "localhost");
+
+const connString = rawUrl.replace(/[?&]sslmode=[^&]*/g, "");
+
 export const pool = new Pool({
   connectionString: connString,
-  ssl: { rejectUnauthorized: false },
+  ...(requiresSsl ? { ssl: { rejectUnauthorized: false } } : {}),
 });
 export const db = drizzle(pool, { schema });
 
