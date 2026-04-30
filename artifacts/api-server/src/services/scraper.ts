@@ -77,13 +77,9 @@ class DefaultRentContentFetcher implements RentContentFetcher {
       });
       if (response.ok) {
         const html = await response.text();
-        // Fire Jina in background for image fallback — don't block the main flow.
-        // We'll race it with a short timeout so slow Jina never delays extraction.
-        const jinaText = await Promise.race([
-          fetchJina(),
-          new Promise<null>((r) => setTimeout(() => r(null), 10000)),
-        ]);
-        return { html, jinaText, finalUrl: response.url };
+        // Don't wait for Jina during the synchronous preview — image is fetched
+        // in the background after the listing is saved (see fetchImageForUrl).
+        return { html, jinaText: null, finalUrl: response.url };
       }
       // Primary fetch failed — use Jina as the only source
       logger.warn({ url, status: response.status }, "Primary rent fetch failed, attempting Jina fallback");
@@ -239,9 +235,29 @@ function normalizeAvailableFrom(raw: string | null | undefined, sourceText?: str
 }
 
 function detectAppliances(text: string): string | null {
-  const tokens = ["fridge", "stove", "dishwasher", "washer", "dryer", "microwave"];
-  const present = tokens.filter((t) => new RegExp(`\\b${t}\\b`, "i").test(text));
-  return present.length > 0 ? present.join(", ") : null;
+  const appliancePatterns = [
+    // English individual appliances
+    /\b(fridge|refrigerator|stove|oven|range|dishwasher|washer|dryer|microwave|freezer)\b/i,
+    // "N appliances" pattern  e.g. "5 appliances", "5-appliance"
+    /\b\d[\s-]?appliances?\b/i,
+    // French
+    /\b(réfrigérateur|frigo|cuisinière|lave-vaisselle|laveuse|sécheuse|four|micro-ondes|congélateur|électroménagers?)\b/i,
+    // Generic "appliances included"
+    /\bappliances?\s+includ/i,
+  ];
+  return appliancePatterns.some((r) => r.test(text)) ? "Yes" : null;
+}
+
+function normalizeAppliances(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const v = value.trim().toLowerCase();
+  if (v === "no" || v === "non" || v === "none" || v === "false") return "No";
+  if (v === "yes" || v === "oui" || v === "true") return "Yes";
+  // If it's a descriptive string mentioning any appliance keywords, treat as Yes
+  if (detectAppliances(v) === "Yes") return "Yes";
+  // Any non-empty string from LLM that isn't a clear "no" → Yes
+  if (v.length > 0) return "Yes";
+  return null;
 }
 
 function extractBedrooms(text: string): string | null {
@@ -358,7 +374,7 @@ const MONTREAL_BOROUGH_ALIASES: Record<string, string[]> = {
   "Rosemont/La Petite-Patrie": ["rosemont", "la petite-patrie", "la petite patrie", "rosemont/la petite-patrie"],
   "Saint-Laurent": ["saint-laurent", "st-laurent", "saint laurent"],
   "Saint-Léonard": ["saint-léonard", "st-léonard", "saint leonard", "st leonard"],
-  "Verdun/Île-des-Soeurs": ["verdun", "île-des-soeurs", "ile-des-soeurs", "nun's island", "nuns island"],
+  "Verdun": ["verdun", "île-des-soeurs", "ile-des-soeurs", "nun's island", "nuns island"],
   "Ville-Marie": ["ville-marie", "downtown", "centre-ville", "old montreal", "vieux-montréal", "vieux montreal"],
   "Villeray/Saint-Michel/Parc-Extension": ["villeray", "saint-michel", "st-michel", "parc-extension", "parc extension"],
 };
@@ -452,7 +468,7 @@ class DefaultRentSchemaExtractor implements RentSchemaExtractor {
       leaseTerm: detectLeaseTerm(cleanedText),
       availableFrom: normalizeAvailableFrom(detectAvailableFrom(cleanedText), cleanedText),
       petsAllowedInfo: normalizePets(detectPets(cleanedText)),
-      appliancesIncluded: detectAppliances(cleanedText),
+      appliancesIncluded: normalizeAppliances(detectAppliances(cleanedText)),
       airConditioning: normalizeAirConditioning(detectAirConditioning(cleanedText)),
       parkingInfo: normalizeParking(detectParking(cleanedText)),
       extractionWarnings: warnings.length ? JSON.stringify(warnings) : null,
@@ -572,7 +588,7 @@ ${cleanedText.slice(0, Number.isFinite(maxInputChars) ? maxInputChars : DEFAULT_
         leaseTerm: typeof parsed["leaseTerm"] === "string" ? parsed["leaseTerm"] : null,
         furnishedStatus: normalizeFurnished(typeof parsed["furnishedStatus"] === "string" ? parsed["furnishedStatus"] : null),
         petsAllowedInfo: normalizePets(typeof parsed["petsAllowedInfo"] === "string" ? parsed["petsAllowedInfo"] : null),
-        appliancesIncluded: typeof parsed["appliancesIncluded"] === "string" ? parsed["appliancesIncluded"] : null,
+        appliancesIncluded: normalizeAppliances(typeof parsed["appliancesIncluded"] === "string" ? parsed["appliancesIncluded"] : null),
         airConditioning: normalizeAirConditioning(typeof parsed["airConditioning"] === "string" ? parsed["airConditioning"] : null),
         parkingInfo: normalizeParking(typeof parsed["parkingInfo"] === "string" ? parsed["parkingInfo"] : null),
       };
@@ -674,7 +690,7 @@ async function scrapeRentGeneric(url: string): Promise<ScrapeResult> {
       leaseTerm: fill(heuristic.leaseTerm, llm?.leaseTerm),
       furnishedStatus: normalizeFurnished(fill(heuristic.furnishedStatus, llm?.furnishedStatus)),
       petsAllowedInfo: normalizePets(fill(heuristic.petsAllowedInfo, llm?.petsAllowedInfo)),
-      appliancesIncluded: fill(heuristic.appliancesIncluded, llm?.appliancesIncluded),
+      appliancesIncluded: normalizeAppliances(fill(heuristic.appliancesIncluded, llm?.appliancesIncluded)),
       airConditioning: normalizeAirConditioning(fill(heuristic.airConditioning, llm?.airConditioning)),
       parkingInfo: normalizeParking(fill(heuristic.parkingInfo, llm?.parkingInfo)),
       extractionWarnings: (() => {
@@ -961,5 +977,28 @@ export async function scrapeNative(
       data: null,
       errorMessage: message,
     };
+  }
+}
+
+/**
+ * Fetches the best listing photo for a URL using Jina (renders JS pages).
+ * Designed to run in the background after the listing is saved.
+ * Returns a CDN image URL, or null if none found.
+ */
+export async function fetchListingImage(url: string): Promise<string | null> {
+  try {
+    const jinaUrl = `https://r.jina.ai/${url}`;
+    const resp = await fetch(jinaUrl, {
+      headers: {
+        "User-Agent": DEFAULT_HEADERS["User-Agent"],
+        Accept: "text/markdown,text/plain;q=0.9,*/*;q=0.8",
+      },
+      signal: AbortSignal.timeout(25000),
+    });
+    if (!resp.ok) return null;
+    const text = await resp.text();
+    return extractMainImage(text);
+  } catch {
+    return null;
   }
 }

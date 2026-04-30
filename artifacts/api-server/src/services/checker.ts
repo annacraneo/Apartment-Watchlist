@@ -224,6 +224,7 @@ export async function checkListing(
       newData.address ?? listing.address,
       newData.city ?? listing.city,
       newData.province ?? listing.province,
+      newData.neighborhood ?? listing.neighborhood,
     );
     if (metro) {
       await db

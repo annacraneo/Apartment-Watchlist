@@ -33,6 +33,7 @@ import {
 import { useCreateListing, useUpdateListing, getGetListingsQueryKey, getGetDashboardSummaryQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Plus, Loader2 } from "lucide-react";
+import { BoroughCombobox } from "@/components/BoroughCombobox";
 import { useToast } from "@/hooks/use-toast";
 
 const formSchema = z.object({
@@ -95,7 +96,7 @@ const BOROUGH_OPTIONS = [
   "Rosemont/La Petite-Patrie",
   "Saint-Laurent",
   "Saint-Léonard",
-  "Verdun/Île-des-Soeurs",
+  "Verdun",
   "Ville-Marie",
   "Villeray/Saint-Michel/Parc-Extension",
 ] as const;
@@ -535,17 +536,12 @@ export function AddListingDialog({
             </div>
             <div className="space-y-1">
               <Label>Neighborhood</Label>
-                <Select value={reviewValues.neighborhood || "unknown"} onValueChange={(v) => updateReviewField("neighborhood", v === "unknown" ? "" : v)}>
-                  <SelectTrigger className={missingClass(reviewValues.neighborhood)}>
-                    <SelectValue placeholder="Select borough" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="unknown">Unknown</SelectItem>
-                    {BOROUGH_OPTIONS.map((borough) => (
-                      <SelectItem key={borough} value={borough}>{borough}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <BoroughCombobox
+                value={reviewValues.neighborhood}
+                onChange={(v) => updateReviewField("neighborhood", v ?? "")}
+                options={BOROUGH_OPTIONS}
+                triggerClassName={missingClass(reviewValues.neighborhood)}
+              />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
@@ -609,7 +605,14 @@ export function AddListingDialog({
               </div>
               <div className="space-y-1">
                 <Label>Appliances Included</Label>
-                <Input className={missingClass(reviewValues.appliancesIncluded)} value={reviewValues.appliancesIncluded} onChange={(e) => updateReviewField("appliancesIncluded", e.target.value)} placeholder="e.g. washer, dryer" />
+                <Select value={reviewValues.appliancesIncluded || "unknown"} onValueChange={(v) => updateReviewField("appliancesIncluded", v === "unknown" ? "" : v)}>
+                  <SelectTrigger className={missingClass(reviewValues.appliancesIncluded)}><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="unknown">Unknown</SelectItem>
+                    <SelectItem value="Yes">Yes</SelectItem>
+                    <SelectItem value="No">No</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             <div className="space-y-1">

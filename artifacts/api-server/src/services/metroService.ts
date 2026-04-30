@@ -222,18 +222,19 @@ async function geocodeAddress(
   address: string,
   city?: string | null,
   province?: string | null,
+  neighborhood?: string | null,
 ): Promise<{ lat: number; lng: number } | null> {
-  // Try with cleaned address first; fall back to full address if that also fails
   const cleaned = cleanAddressForGeocoding(address);
   const localitySuffix = [city, province].filter(Boolean).join(", ");
+  // Use neighborhood as disambiguation hint — prevents same-street-name mismatches
+  // (e.g. "rue Saint-Germain" exists in both Hochelaga AND NDG).
+  const neighHint = neighborhood ? neighborhood.split(/[/\-–]/)[0]?.trim() : null;
   const attempts = [
-    // Always prefer Montreal-scoped queries first to avoid same-street-name mismatches.
+    neighHint ? `${cleaned}, ${neighHint}, Montreal, QC, Canada` : null,
     `${cleaned}, Montreal, QC, Canada`,
     `${address}, Montreal, QC, Canada`,
     localitySuffix ? `${cleaned}, ${localitySuffix}, Canada` : null,
-    localitySuffix ? `${address}, ${localitySuffix}, Canada` : null,
     `${cleaned}, Canada`,
-    `${address}, Canada`,
   ].filter((a, i, arr) => !!a && arr.indexOf(a) === i) as string[];
 
   for (const attempt of attempts) {
@@ -273,6 +274,7 @@ export async function computeMetroProximity(
   address: string | null | undefined,
   city?: string | null | undefined,
   province?: string | null | undefined,
+  neighborhood?: string | null | undefined,
 ): Promise<NearestMetroResult | null> {
   let coords: { lat: number; lng: number } | null = null;
 
@@ -283,7 +285,7 @@ export async function computeMetroProximity(
   }
 
   if (!coords && address) {
-    coords = await geocodeAddress(address, city, province);
+    coords = await geocodeAddress(address, city, province, neighborhood);
   }
 
   if (!coords) return null;

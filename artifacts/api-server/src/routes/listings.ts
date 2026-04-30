@@ -19,7 +19,7 @@ import {
   BulkDeleteListingsBody,
 } from "@workspace/api-zod";
 import { logger } from "../lib/logger.js";
-import { scrapeUrl, validateListingUrl } from "../services/scraper.js";
+import { scrapeUrl, validateListingUrl, fetchListingImage } from "../services/scraper.js";
 import { checkListing, checkAllListings } from "../services/checker.js";
 import { computePriceDelta } from "../parsers/shared.js";
 import { computeMetroProximity } from "../services/metroService.js";
@@ -329,7 +329,7 @@ router.post("/listings", async (req, res): Promise<void> => {
 
         // Compute nearest metro station
         try {
-          const metro = await computeMetroProximity(data.latitude, data.longitude, data.address, data.city, data.province);
+          const metro = await computeMetroProximity(data.latitude, data.longitude, data.address, data.city, data.province, data.neighborhood);
           if (metro) {
             await db
               .update(listingsTable)
@@ -498,6 +498,7 @@ router.patch("/listings/:id", async (req, res): Promise<void> => {
         listing.address,
         listing.city,
         listing.province,
+        listing.neighborhood,
       );
       if (metro) {
         const [metroUpdated] = await db
@@ -511,6 +512,27 @@ router.patch("/listings/:id", async (req, res): Promise<void> => {
     } catch (err) {
       logger.warn({ id: listing.id, err }, "Metro recomputation after update failed");
     }
+  }
+
+  // If this is a review save (lockedFields present) and there's no image yet,
+  // kick off a background Jina fetch to get the listing photo.
+  if (b.lockedFields && !listing.mainImageUrl && listing.listingUrl) {
+    const listingId = listing.id;
+    const listingUrl = listing.listingUrl;
+    setImmediate(async () => {
+      try {
+        const imageUrl = await fetchListingImage(listingUrl);
+        if (imageUrl) {
+          await db
+            .update(listingsTable)
+            .set({ mainImageUrl: imageUrl })
+            .where(eq(listingsTable.id, listingId));
+          logger.info({ id: listingId, imageUrl }, "Background image fetch completed");
+        }
+      } catch (err) {
+        logger.warn({ id: listingId, err }, "Background image fetch failed");
+      }
+    });
   }
 
   res.json(listing);

@@ -86,6 +86,7 @@ import {
 
 
 import { AddListingDialog } from "@/components/AddListingDialog";
+import { BoroughCombobox } from "@/components/BoroughCombobox";
 import { StatusBadge } from "@/components/StatusBadge";
 import { RentFilters } from "@/components/RentFilters";
 
@@ -201,7 +202,7 @@ const RENT_BOROUGH_OPTIONS = [
   "Rosemont/La Petite-Patrie",
   "Saint-Laurent",
   "Saint-Léonard",
-  "Verdun/Île-des-Soeurs",
+  "Verdun",
   "Ville-Marie",
   "Villeray/Saint-Michel/Parc-Extension",
 ] as const;
@@ -1768,15 +1769,12 @@ export default function Home() {
               </div>
               <div className="space-y-1">
                 <Label>Neighborhood</Label>
-                <Select value={rentEditValues.neighborhood || "unknown"} onValueChange={(v) => updateRentEditField("neighborhood", v === "unknown" ? "" : v)}>
-                  <SelectTrigger className={!rentEditValues.neighborhood ? "border-yellow-500/60 bg-yellow-500/10" : ""}><SelectValue placeholder="Select borough" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="unknown">Unknown</SelectItem>
-                    {RENT_BOROUGH_OPTIONS.map((borough) => (
-                      <SelectItem key={borough} value={borough}>{borough}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <BoroughCombobox
+                  value={rentEditValues.neighborhood}
+                  onChange={(v) => updateRentEditField("neighborhood", v ?? "")}
+                  options={RENT_BOROUGH_OPTIONS}
+                  triggerClassName={!rentEditValues.neighborhood ? "border-yellow-500/60 bg-yellow-500/10" : ""}
+                />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
@@ -1832,7 +1830,14 @@ export default function Home() {
                 </div>
                 <div className="space-y-1">
                   <Label>Appliances Included</Label>
-                  <Input className={!rentEditValues.appliancesIncluded ? "border-yellow-500/60 bg-yellow-500/10" : ""} value={rentEditValues.appliancesIncluded} onChange={(e) => updateRentEditField("appliancesIncluded", e.target.value)} placeholder="e.g. washer, dryer" />
+                  <Select value={rentEditValues.appliancesIncluded || "unknown"} onValueChange={(v) => updateRentEditField("appliancesIncluded", v === "unknown" ? "" : v)}>
+                    <SelectTrigger className={!rentEditValues.appliancesIncluded ? "border-yellow-500/60 bg-yellow-500/10" : ""}><SelectValue placeholder="Select" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="unknown">Unknown</SelectItem>
+                      <SelectItem value="Yes">Yes</SelectItem>
+                      <SelectItem value="No">No</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
               <div className="space-y-1">
