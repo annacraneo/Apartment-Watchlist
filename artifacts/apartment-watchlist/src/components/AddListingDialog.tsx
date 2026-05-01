@@ -491,9 +491,13 @@ export function AddListingDialog({
         ) : (
           <div className="space-y-3">
             <div className="flex items-center gap-2 text-xs">
-              {extractionEngineLabel.toLowerCase().startsWith("heuristic") ? (
+              {extractionEngineLabel.toLowerCase().includes("ollama") || extractionEngineLabel.toLowerCase().includes("openai") ? (
+                <span className="inline-flex items-center rounded-full border border-blue-500/40 bg-blue-500/15 text-blue-400 px-2 py-0.5 font-medium">
+                  Heuristic + LLM
+                </span>
+              ) : extractionEngineLabel.toLowerCase().includes("heuristic") ? (
                 <span className="inline-flex items-center rounded-full border border-amber-500/40 bg-amber-500/15 text-amber-400 px-2 py-0.5 font-medium">
-                  Heuristic
+                  Heuristic only
                 </span>
               ) : (
                 <span className="inline-flex items-center rounded-full border border-blue-500/40 bg-blue-500/15 text-blue-400 px-2 py-0.5 font-medium">
@@ -501,9 +505,11 @@ export function AddListingDialog({
                 </span>
               )}
               <span className="text-muted-foreground">
-                {extractionEngineLabel.toLowerCase().startsWith("heuristic")
-                  ? `Heuristic extraction used${extractionEngineReason ? `: ${extractionEngineReason}` : "."}`
-                  : `LLM extraction used: ${extractionEngineLabel}`}
+                {extractionEngineLabel.toLowerCase().includes("ollama") || extractionEngineLabel.toLowerCase().includes("openai")
+                  ? `Heuristic + LLM (${extractionEngineLabel.replace(/heuristic\s*\+\s*/i, "").trim()})`
+                  : extractionEngineReason
+                    ? `Heuristic only: ${extractionEngineReason}`
+                    : "Heuristic only — LLM disabled or unavailable."}
               </span>
             </div>
             <div className="grid grid-cols-2 gap-3">

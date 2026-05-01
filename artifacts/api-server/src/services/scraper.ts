@@ -208,26 +208,37 @@ function detectLeaseTerm(text: string): string | null {
 }
 
 function detectAvailableFrom(text: string): string | null {
-  // Only extract when availability is explicitly indicated.
-  // This avoids false positives from random dates present in listing pages.
-  const m = text.match(
-    /\b(?:available|availability|disponible)\s*(?:from|on|à partir du|a partir du|dès|des)?\s*[:\-]?\s*([a-z]+\s+\d{1,2}(?:,\s*\d{4})?|\d{4}-\d{2}-\d{2})/i,
+  // "Available now" / "Immediately" patterns → normalize to "now"
+  if (/\b(?:available\s+(?:now|immediately)|libre\s+(?:maintenant|immédiatement|tout\s+de\s+suite)|disponible\s+(?:maintenant|immédiatement|dès\s+maintenant|de\s+suite))\b/i.test(text)) {
+    return "now";
+  }
+  // "Move in [month]" or "move-in ready"
+  const moveIn = text.match(/\bmove[\s-]?in\s+(?:ready|as\s+of|date[:\s]+)?([a-z]+\s+\d{1,2}(?:,?\s*\d{4})?)/i);
+  if (moveIn?.[1]) return moveIn[1].trim();
+
+  // Explicit availability with a date: "available from May 1", "disponible le 1er juillet"
+  const explicit = text.match(
+    /\b(?:available|availability|disponible|libre)\s*(?:from|on|as\s+of|le|dès|à partir du|a partir du|des)?\s*[:\-]?\s*([a-z]+\s+\d{1,2}(?:,?\s*\d{4})?|\d{1,2}\s+[a-z]+(?:\s+\d{4})?|\d{4}-\d{2}-\d{2})/i,
   );
-  return m?.[1]?.trim() ?? null;
+  if (explicit?.[1]) return explicit[1].trim();
+
+  return null;
 }
 
 function normalizeAvailableFrom(raw: string | null | undefined, sourceText?: string | null): string | null {
   if (!raw) return null;
   const value = raw.trim();
   if (!value) return null;
+  // "now" is always valid — set by detectAvailableFrom when clearly stated
+  if (value === "now") return "now";
   if (!sourceText) return null;
   const escapedValue = value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const explicitPattern = new RegExp(
-    `\\b(?:available|availability|disponible)\\b[\\s\\S]{0,60}(?:from|on|à partir du|a partir du|dès|des)?[\\s:\\-]{0,20}${escapedValue}`,
+    `\\b(?:available|availability|disponible|libre|move[\\s-]?in)\\b[\\s\\S]{0,80}(?:from|on|as\\s+of|le|dès|à partir du|a partir du|des)?[\\s:\\-]{0,20}${escapedValue}`,
     "i",
   );
   const isoDatePattern = /\d{4}-\d{2}-\d{2}/.test(value)
-    ? new RegExp(`\\b(?:available|availability|disponible)\\b[\\s\\S]{0,60}${escapedValue}`, "i")
+    ? new RegExp(`\\b(?:available|availability|disponible|libre)\\b[\\s\\S]{0,60}${escapedValue}`, "i")
     : null;
   if (explicitPattern.test(sourceText)) return value;
   if (isoDatePattern?.test(sourceText)) return value;
@@ -261,13 +272,34 @@ function normalizeAppliances(value: string | null | undefined): string | null {
 }
 
 function extractBedrooms(text: string): string | null {
-  const m = text.match(/(\d+(?:\.\d+)?)\s*(?:bed|beds|bedroom|bedrooms)\b/i);
-  return m?.[1] ?? null;
+  // English
+  const en = text.match(/(\d+(?:\.\d+)?)\s*(?:bed|beds|bedroom|bedrooms)\b/i);
+  if (en?.[1]) return en[1];
+  // BR shorthand: "2 BR", "3BR"
+  const br = text.match(/\b(\d+)\s*BR\b/i);
+  if (br?.[1]) return br[1];
+  // French: "2 chambres", "chambre à coucher"
+  const fr = text.match(/\b(\d+)\s*(?:chambre|chambres|ch\.?\s*(?:à\s*coucher)?)\b/i);
+  if (fr?.[1]) return fr[1];
+  // Quebec room-count notation: "4½", "4 1/2", "4 et demi"
+  // A Quebec Xp means (X-2) bedrooms roughly: 3½→1bd, 4½→2bd, 5½→3bd
+  const qc = text.match(/\b(\d+)\s*(?:½|1\/2|et\s*demi)\b/i);
+  if (qc?.[1]) {
+    const rooms = parseInt(qc[1], 10);
+    const bedrooms = Math.max(1, rooms - 2);
+    return String(bedrooms);
+  }
+  return null;
 }
 
 function extractBathrooms(text: string): string | null {
-  const m = text.match(/(\d+(?:\.\d+)?)\s*(?:bath|baths|bathroom|bathrooms)\b/i);
-  return m?.[1] ?? null;
+  // English
+  const en = text.match(/(\d+(?:\.\d+)?)\s*(?:bath|baths|bathroom|bathrooms)\b/i);
+  if (en?.[1]) return en[1];
+  // French: "salle de bain", "salle d'eau", "sdb"
+  const fr = text.match(/\b(\d+)\s*(?:salle[s]?\s*(?:de\s*bain|d['']eau)|sdb)\b/i);
+  if (fr?.[1]) return fr[1];
+  return null;
 }
 
 function extractSquareFeet(text: string): string | null {
@@ -505,6 +537,38 @@ function extractJsonObject(text: string): string | null {
   return obj?.[0]?.trim() ?? null;
 }
 
+// Canonical borough list injected into LLM prompt for accurate matching
+const BOROUGH_LIST_FOR_PROMPT = [
+  "Ahuntsic-Cartierville","Anjou","Côte-des-Neiges/Notre-Dame-de-Grâce","Lachine","LaSalle",
+  "Le Plateau-Mont-Royal","Le Sud-Ouest","L'Île-Bizard/Sainte-Geneviève",
+  "Mercier-Hochelaga-Maisonneuve","Montréal-Nord","Outremont","Pierrefonds-Roxboro",
+  "Rivière-des-Prairies/Pointe-aux-Trembles","Rosemont/La Petite-Patrie","Saint-Laurent",
+  "Saint-Léonard","Verdun","Ville-Marie","Villeray/Saint-Michel/Parc-Extension",
+].join(", ");
+
+/**
+ * Build a smart LLM input: first part of the text (main description) +
+ * any detected amenity/feature section found deeper in the page.
+ * This avoids sending nav/footer noise while capturing buried details.
+ */
+function buildLlmExcerpt(text: string, maxChars: number): string {
+  const headChars = Math.floor(maxChars * 0.65); // ~65% for top description
+  const head = text.slice(0, headChars);
+
+  // Search in the remainder for an amenity/features block
+  const tail = text.slice(headChars);
+  const amenityRe = /\b(?:features?|amenities|inclusions?|services?|characteristics?|inclus|caractéristiques?|équipements?|commodités?|disponibilités?|disponible|stationnement|animals?|animaux|meublé|furnished|parking|chauffage|heating|électroménager|appliance)\b/i;
+  const match = amenityRe.exec(tail);
+  if (match) {
+    // Extract a window around the match
+    const start = Math.max(0, match.index - 200);
+    const end = Math.min(tail.length, match.index + (maxChars - headChars - 200));
+    const section = tail.slice(start, end);
+    return `${head}\n\n[...]\n\n${section}`;
+  }
+  return head;
+}
+
 class OpenAiCompatibleRentExtractor implements RentLlmExtractor {
   async extract(cleanedText: string, url: string, config: LlmRuntimeConfig, missingFields?: string[]): Promise<Partial<NormalizedListing> | null> {
     if (!config.enabled) return null;
@@ -517,6 +581,7 @@ class OpenAiCompatibleRentExtractor implements RentLlmExtractor {
       "appliancesIncluded","airConditioning","parkingInfo",
     ];
     const fieldSchema = fields.map(f => `  "${f}": string|null`).join(",\n");
+    const excerpt = buildLlmExcerpt(cleanedText, maxInputChars);
 
     const prompt = `Extract ONLY the following fields from the rental listing text. Return ONLY JSON.
 Fields needed: ${fields.join(", ")}
@@ -528,13 +593,15 @@ ${fieldSchema}
 Rules:
 - Only return the fields listed above.
 - For price: digits only, e.g. "1800".
-- For address: street number + street name only, no city/borough suffix.
-- For neighborhood: canonical Montreal borough name only (e.g. "Rosemont", "Plateau-Mont-Royal", "Hochelaga-Maisonneuve").
+- For address: street number + street name only, no city/province/borough suffix.
+- For neighborhood: MUST be one of these exact Montreal borough names: ${BOROUGH_LIST_FOR_PROMPT}. Pick the closest match or null.
+- Quebec room notation: "4½" or "4 et demi" means ~2 bedrooms; "3½" means ~1 bedroom; "5½" means ~3 bedrooms.
+- For availableFrom: use "now" if immediately available, otherwise "Month Day, Year" format.
 - For unavailable fields: null.
-- Text may be English or French. French clues: "stationnement"=parking, "animaux"/"chat"/"chien"=pets, "meublé"=furnished, "climatisé"/"thermopompe"=AC, "disponible le"=available from, "quartier"/"arrondissement"=neighborhood.
+- Text may be English or French. French clues: "stationnement"=parking, "animaux/chat/chien"=pets, "meublé"=furnished, "climatisé/thermopompe"=AC, "disponible le/dès"=available from, "quartier/arrondissement"=neighborhood, "chambre"=bedroom, "salle de bain"=bathroom.
 URL: ${url}
 TEXT:
-${cleanedText.slice(0, Number.isFinite(maxInputChars) ? maxInputChars : DEFAULT_LLM_MAX_INPUT_CHARS)}`;
+${excerpt}`;
 
     try {
       const timeoutMs = Number(process.env["LLM_TIMEOUT_MS"] || DEFAULT_LLM_TIMEOUT_MS);
@@ -641,58 +708,55 @@ async function scrapeRentGeneric(url: string): Promise<ScrapeResult> {
     if (!cleaned) return { success: false, data: null, errorMessage: "No readable content extracted" };
     const heuristic = extractor.extract(cleaned, html, url);
 
-    // Determine which fields heuristic left null — only ask LLM for those
-    const EXTRACTABLE_FIELDS = [
-      "currentPrice","address","neighborhood","bedrooms","bathrooms","squareFeet",
-      "floor","availableFrom","leaseTerm","furnishedStatus","petsAllowedInfo",
-      "appliancesIncluded","airConditioning","parkingInfo",
-    ] as const;
-    type ExtractableField = typeof EXTRACTABLE_FIELDS[number];
-    const missingFields = EXTRACTABLE_FIELDS.filter(
-      (f) => heuristic[f as keyof typeof heuristic] == null || heuristic[f as keyof typeof heuristic] === ""
-    ) as ExtractableField[];
-
-    const shouldUseLlm = !!llmConfig && missingFields.length > 0;
-    const llm = shouldUseLlm && llmConfig
-      ? await llmExtractor.extract(cleaned, url, llmConfig, [...missingFields])
+    // Always run LLM (if configured) on the full field set — it sees more context
+    // than pure regex and can improve on heuristic results, not just fill gaps.
+    const llm = llmConfig
+      ? await llmExtractor.extract(cleaned, url, llmConfig)
       : null;
 
     const warnings: string[] = [];
-    if (llm && llmConfig && missingFields.length > 0) {
-      warnings.push(`Extraction engine: heuristic + ${llmConfig.provider} for [${missingFields.join(", ")}]`);
-    } else if (!shouldUseLlm) {
-      warnings.push("Extraction engine: heuristic (all fields found)");
-    } else {
+    if (llm && llmConfig) {
+      warnings.push(`Extraction engine: heuristic + ${llmConfig.provider}`);
+    } else if (llmConfig && !llm) {
       warnings.push("Extraction engine: heuristic (LLM unavailable or timed out)");
+    } else {
+      warnings.push("Extraction engine: heuristic only (LLM disabled)");
     }
 
-    // Heuristic wins on every field it found. LLM only fills in nulls.
-    const fill = <T>(hVal: T | null | undefined, llmVal: T | null | undefined): T | null =>
+    // Merge strategy:
+    // - Heuristic wins for structural/numeric fields (regex is very precise)
+    // - LLM wins for contextual fields (understands prose better)
+    // - Either serves as fallback for the other when null
+    const hFirst = <T>(hVal: T | null | undefined, llmVal: T | null | undefined): T | null =>
       (hVal != null && hVal !== "" as unknown) ? hVal : (llmVal ?? null);
+    const llmFirst = <T>(llmVal: T | null | undefined, hVal: T | null | undefined): T | null =>
+      (llmVal != null && llmVal !== "" as unknown) ? llmVal : (hVal ?? null);
 
     const extracted: Partial<NormalizedListing> = {
       ...heuristic,
       title: heuristic.title ?? llm?.title ?? null,
-      currentPrice: fill(heuristic.currentPrice, llm?.currentPrice),
-      address: fill(heuristic.address, normalizeAddress(llm?.address)),
+      // Structural: heuristic regex is precise
+      currentPrice: hFirst(heuristic.currentPrice, llm?.currentPrice),
+      address: hFirst(heuristic.address, normalizeAddress(llm?.address)),
+      bedrooms: hFirst(heuristic.bedrooms, llm?.bedrooms),
+      bathrooms: hFirst(heuristic.bathrooms, llm?.bathrooms),
+      // Contextual: LLM understands prose better
       neighborhood: normalizeNeighborhood(
-        fill(heuristic.neighborhood, llm?.neighborhood),
+        llmFirst(llm?.neighborhood, heuristic.neighborhood),
         heuristic.address ?? llm?.address ?? cleaned,
       ),
-      bedrooms: fill(heuristic.bedrooms, llm?.bedrooms),
-      bathrooms: fill(heuristic.bathrooms, llm?.bathrooms),
-      squareFeet: fill(heuristic.squareFeet, llm?.squareFeet),
-      floor: fill(heuristic.floor, llm?.floor),
+      squareFeet: llmFirst(llm?.squareFeet, heuristic.squareFeet),
+      floor: llmFirst(llm?.floor, heuristic.floor),
       availableFrom: normalizeAvailableFrom(
-        fill(heuristic.availableFrom, llm?.availableFrom),
+        llmFirst(llm?.availableFrom, heuristic.availableFrom),
         cleaned,
       ),
-      leaseTerm: fill(heuristic.leaseTerm, llm?.leaseTerm),
-      furnishedStatus: normalizeFurnished(fill(heuristic.furnishedStatus, llm?.furnishedStatus)),
-      petsAllowedInfo: normalizePets(fill(heuristic.petsAllowedInfo, llm?.petsAllowedInfo)),
-      appliancesIncluded: normalizeAppliances(fill(heuristic.appliancesIncluded, llm?.appliancesIncluded)),
-      airConditioning: normalizeAirConditioning(fill(heuristic.airConditioning, llm?.airConditioning)),
-      parkingInfo: normalizeParking(fill(heuristic.parkingInfo, llm?.parkingInfo)),
+      leaseTerm: llmFirst(llm?.leaseTerm, heuristic.leaseTerm),
+      furnishedStatus: normalizeFurnished(llmFirst(llm?.furnishedStatus, heuristic.furnishedStatus)),
+      petsAllowedInfo: normalizePets(llmFirst(llm?.petsAllowedInfo, heuristic.petsAllowedInfo)),
+      appliancesIncluded: normalizeAppliances(llmFirst(llm?.appliancesIncluded, heuristic.appliancesIncluded)),
+      airConditioning: normalizeAirConditioning(llmFirst(llm?.airConditioning, heuristic.airConditioning)),
+      parkingInfo: normalizeParking(llmFirst(llm?.parkingInfo, heuristic.parkingInfo)),
       extractionWarnings: (() => {
         let existing: unknown[] = [];
         if (heuristic.extractionWarnings) {
