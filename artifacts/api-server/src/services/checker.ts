@@ -206,13 +206,7 @@ export async function checkListing(
     })
     .where(eq(listingsTable.id, listingId));
 
-  if (lockedConflicts.length > 0) {
-    await createNotification(
-      listingId,
-      "locked_field_conflict",
-      `New extraction differs from locked fields: ${lockedConflicts.join(", ")}. Keeping your manual values.`,
-    );
-  }
+  // Locked field conflicts are silently ignored — re-checks only care about price and availability.
 
   // Always recompute metro proximity so walking times stay accurate across
   // algorithm improvements and coordinate updates. Haversine is instant;

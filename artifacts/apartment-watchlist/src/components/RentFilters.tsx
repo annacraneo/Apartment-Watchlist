@@ -4,6 +4,25 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
+export const SOURCE_SITE_LABELS: Record<string, string> = {
+  facebook: "Facebook",
+  duproprio: "DuProprio",
+  kijiji: "Kijiji",
+  rentals_ca: "Rentals.ca",
+  craigslist: "Craigslist",
+  louer_ca: "Louer.ca",
+  zumper: "Zumper",
+  padmapper: "PadMapper",
+  apartments_com: "Apartments.com",
+  rent_generic: "Other",
+  unknown: "Other",
+};
+
+export function formatSourceSite(value: string | null | undefined): string {
+  if (!value) return "—";
+  return SOURCE_SITE_LABELS[value] ?? value.replace(/_/g, ".").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 export function RentFilters({
   minRent,
   maxRent,
@@ -15,6 +34,9 @@ export function RentFilters({
   availableBy,
   onAvailableByChange,
   availableOptions,
+  sourceSite,
+  onSourceSiteChange,
+  sourceOptions,
 }: {
   minRent: number | null;
   maxRent: number | null;
@@ -26,6 +48,9 @@ export function RentFilters({
   availableBy: string;
   onAvailableByChange: (value: string) => void;
   availableOptions: string[];
+  sourceSite: string;
+  onSourceSiteChange: (value: string) => void;
+  sourceOptions: string[];
 }) {
   const step = 50;
   const [priceOpen, setPriceOpen] = React.useState(false);
@@ -131,6 +156,21 @@ export function RentFilters({
           ))}
         </SelectContent>
       </Select>
+      {sourceOptions.length > 1 && (
+        <Select value={sourceSite} onValueChange={onSourceSiteChange}>
+          <SelectTrigger className="w-[140px] h-7 text-xs bg-background">
+            <SelectValue placeholder="Source" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Source: Any</SelectItem>
+            {sourceOptions.map((s) => (
+              <SelectItem key={s} value={s}>
+                {formatSourceSite(s)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
     </>
   );
 }

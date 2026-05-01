@@ -88,7 +88,7 @@ import {
 import { AddListingDialog } from "@/components/AddListingDialog";
 import { BoroughCombobox } from "@/components/BoroughCombobox";
 import { StatusBadge } from "@/components/StatusBadge";
-import { RentFilters } from "@/components/RentFilters";
+import { RentFilters, formatSourceSite } from "@/components/RentFilters";
 
 function MultiFilter({
   label,
@@ -499,6 +499,7 @@ export default function Home() {
   const [maxRent, setMaxRent] = useState<number | null>(null);
   const [petsAllowed, setPetsAllowed] = useState("all");
   const [availableBy, setAvailableBy] = useState("");
+  const [sourceSiteFilter, setSourceSiteFilter] = useState("all");
   const [sortBy, setSortBy] = useState("updatedAt");
   const [sortDir, setSortDir] = useState("desc");
   const [page, setPage] = useState(1);
@@ -539,7 +540,7 @@ export default function Home() {
     return () => clearTimeout(timer);
   }, [search]);
 
-  React.useEffect(() => { setPage(1); }, [listingType, debouncedSearch, status, interestLevel, boroughs, parkingInfos, condoTypes, metros, visitNextOnly, visitedOnly, minRent, maxRent, petsAllowed, availableBy, pageSize]);
+  React.useEffect(() => { setPage(1); }, [listingType, debouncedSearch, status, interestLevel, boroughs, parkingInfos, condoTypes, metros, visitNextOnly, visitedOnly, minRent, maxRent, petsAllowed, availableBy, sourceSiteFilter, pageSize]);
 
   const queryParams: GetListingsParams = {
     listingType,
@@ -605,6 +606,9 @@ export default function Home() {
         const right = availableBy.trim().toLowerCase();
         if (left !== right) return false;
       }
+      if (listingType === "rent" && sourceSiteFilter !== "all") {
+        if ((l.sourceSite || "unknown") !== sourceSiteFilter) return false;
+      }
       if (listingType === "rent" && (minRent !== null || maxRent !== null)) {
         const amount = parseRentAmount(l.currentPrice);
         if (amount !== null && (minRent !== null && amount < minRent)) return false;
@@ -623,7 +627,7 @@ export default function Home() {
       });
     }
     return filtered;
-  }, [allListings, boroughs, parkingInfos, condoTypes, metros, visitNextOnly, visitedOnly, sortBy, sortDir, listingType, availableBy, minRent, maxRent]);
+  }, [allListings, boroughs, parkingInfos, condoTypes, metros, visitNextOnly, visitedOnly, sortBy, sortDir, listingType, availableBy, sourceSiteFilter, minRent, maxRent]);
 
   const totalCount = allListings?.length ?? 0;
   const filteredCount = listings.length;
@@ -826,6 +830,7 @@ export default function Home() {
   const parkingOptions = [...new Set((allListings ?? []).map((l) => formatParking(l.parkingInfo)).filter((v) => v && v !== "—"))].sort() as string[];
   const metroOptions = [...new Set((allListings ?? []).map((l) => l.nearestMetro).filter(Boolean))].sort() as string[];
   const condoTypeOptions = [...new Set((allListings ?? []).map((l) => l.propertyType).filter(Boolean))].sort() as string[];
+  const sourceOptions = [...new Set((allListings ?? []).filter((l) => l.listingType === "rent").map((l) => l.sourceSite || "unknown").filter(Boolean))].sort() as string[];
   const availableFromOptions = [...new Set((allListings ?? []).map((l) => l.availableFrom).filter(Boolean))].sort() as string[];
 
   const EmptyState = () => (
@@ -833,7 +838,7 @@ export default function Home() {
       <MapPin className="w-10 h-10 opacity-30" />
       <p className="text-sm font-medium">No listings found</p>
       {(debouncedSearch || status !== "all" || interestLevel !== "all" || boroughs.length > 0 || parkingInfos.length > 0 || condoTypes.length > 0 || metros.length > 0 || visitNextOnly || visitedOnly || petsAllowed !== "all" || availableBy || minRent !== null || maxRent !== null) && (
-        <Button variant="outline" size="sm" onClick={() => { setSearch(""); setStatus("all"); setInterestLevel("all"); setBoroughs([]); setParkingInfos([]); setCondoTypes([]); setMetros([]); setVisitNextOnly(false); setVisitedOnly(false); setMinRent(null); setMaxRent(null); setPetsAllowed("all"); setAvailableBy(""); }}>
+        <Button variant="outline" size="sm" onClick={() => { setSearch(""); setStatus("all"); setInterestLevel("all"); setBoroughs([]); setParkingInfos([]); setCondoTypes([]); setMetros([]); setVisitNextOnly(false); setVisitedOnly(false); setMinRent(null); setMaxRent(null); setPetsAllowed("all"); setAvailableBy(""); setSourceSiteFilter("all"); }}>
           Clear filters
         </Button>
       )}
@@ -1007,6 +1012,9 @@ export default function Home() {
               availableBy={availableBy}
               onAvailableByChange={setAvailableBy}
               availableOptions={availableFromOptions}
+              sourceSite={sourceSiteFilter}
+              onSourceSiteChange={setSourceSiteFilter}
+              sourceOptions={sourceOptions}
             />
           )}
 
@@ -1133,6 +1141,7 @@ export default function Home() {
                       <TableHead className="w-28">Furnished</TableHead>
                       <TableHead className="w-24">A/C</TableHead>
                       <TableHead className="w-36">Appliances</TableHead>
+                      <TableHead className="w-28">Source</TableHead>
                     </>
                   ) : (
                     <>
@@ -1150,7 +1159,7 @@ export default function Home() {
                 {isLoadingListings ? (
                   Array.from({ length: pageSize }).map((_, i) => (
                     <TableRow key={i}>
-                      {Array.from({ length: isRentView ? 21 : 18 }).map((_, j) => (
+                      {Array.from({ length: isRentView ? 22 : 18 }).map((_, j) => (
                         <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>
                       ))}
                     </TableRow>
@@ -1342,6 +1351,13 @@ export default function Home() {
                             <TableCell className="text-muted-foreground">{formatFurnished(listing.furnishedStatus)}</TableCell>
                             <TableCell className="text-muted-foreground">{formatFurnished(listing.airConditioning)}</TableCell>
                             <TableCell className="text-muted-foreground text-xs">{listing.appliancesIncluded || "—"}</TableCell>
+                            <TableCell>
+                              {listing.sourceSite && listing.sourceSite !== "unknown" && listing.sourceSite !== "rent_generic" ? (
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-muted text-muted-foreground">
+                                  {formatSourceSite(listing.sourceSite)}
+                                </span>
+                              ) : "—"}
+                            </TableCell>
                           </>
                         ) : (
                           <>

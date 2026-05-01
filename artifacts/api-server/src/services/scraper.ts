@@ -509,14 +509,34 @@ class DefaultRentSchemaExtractor implements RentSchemaExtractor {
   }
 }
 
+function detectRentSourceSite(url: string): string {
+  try {
+    const host = new URL(url).hostname.replace(/^www\./, "").toLowerCase();
+    if (host.includes("facebook.com")) return "facebook";
+    if (host.includes("duproprio.com")) return "duproprio";
+    if (host.includes("kijiji.ca")) return "kijiji";
+    if (host.includes("rentals.ca")) return "rentals_ca";
+    if (host.includes("craigslist.org")) return "craigslist";
+    if (host.includes("louer.ca")) return "louer_ca";
+    if (host.includes("zumper.com")) return "zumper";
+    if (host.includes("padmapper.com")) return "padmapper";
+    if (host.includes("appartements.com") || host.includes("apartments.com")) return "apartments_com";
+    // Fallback: use the bare domain (e.g. "realtor.ca" → "realtor_ca")
+    return host.replace(/\./g, "_");
+  } catch {
+    return "unknown";
+  }
+}
+
 class DefaultRentNormalizer implements RentNormalizer {
   normalize(partial: Partial<NormalizedListing>, url: string, cleanedText: string): NormalizedListing {
+    const sourceSite = detectRentSourceSite(url);
     return {
       ...emptyNormalized(),
-      sourceSite: "rent_generic",
+      sourceSite,
       listingStatus: "active",
       currency: "CAD",
-      rawData: JSON.stringify({ source: "rent_generic", url, extractedAt: new Date().toISOString() }),
+      rawData: JSON.stringify({ source: sourceSite, url, extractedAt: new Date().toISOString() }),
       rawContent: cleanedText,
       ...partial,
     };

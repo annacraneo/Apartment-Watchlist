@@ -1,14 +1,12 @@
-import { normalizePrice, normalizeWhitespace } from "../parsers/shared.js";
+import { normalizePrice } from "../parsers/shared.js";
 import type { InsertListingChange } from "@workspace/db";
 
 export type ChangeType =
   | "price_drop"
   | "price_increase"
   | "status_change"
-  | "description_change"
   | "removed"
-  | "restored"
-  | "metadata_change";
+  | "restored";
 
 export interface DetectedChange {
   fieldName: string;
@@ -17,10 +15,11 @@ export interface DetectedChange {
   changeType: ChangeType;
 }
 
+// Only track the two things the user cares about: price and availability.
 const TRACKED_FIELDS: Array<{
   field: string;
   normalize?: (v: string | null) => string | null;
-  changeTypeFn?: (old: string | null, current: string | null) => ChangeType;
+  changeTypeFn: (old: string | null, current: string | null) => ChangeType;
 }> = [
   {
     field: "currentPrice",
@@ -28,7 +27,7 @@ const TRACKED_FIELDS: Array<{
     changeTypeFn: (old, curr) => {
       const o = parseFloat(old || "0");
       const c = parseFloat(curr || "0");
-      if (isNaN(o) || isNaN(c)) return "metadata_change";
+      if (isNaN(o) || isNaN(c)) return "price_increase";
       return c < o ? "price_drop" : "price_increase";
     },
   },
@@ -40,26 +39,6 @@ const TRACKED_FIELDS: Array<{
       return "status_change";
     },
   },
-  {
-    field: "description",
-    normalize: normalizeWhitespace,
-    changeTypeFn: () => "description_change",
-  },
-  { field: "title", changeTypeFn: () => "metadata_change" },
-  { field: "address", changeTypeFn: () => "metadata_change" },
-  { field: "bedrooms", changeTypeFn: () => "metadata_change" },
-  { field: "bathrooms", changeTypeFn: () => "metadata_change" },
-  { field: "squareFeet", changeTypeFn: () => "metadata_change" },
-  { field: "condoFees", changeTypeFn: () => "metadata_change" },
-  { field: "taxes", changeTypeFn: () => "metadata_change" },
-  { field: "furnishedStatus", changeTypeFn: () => "metadata_change" },
-  { field: "leaseTerm", changeTypeFn: () => "metadata_change" },
-  { field: "availableFrom", changeTypeFn: () => "metadata_change" },
-  { field: "petsAllowedInfo", changeTypeFn: () => "metadata_change" },
-  { field: "appliancesIncluded", changeTypeFn: () => "metadata_change" },
-  { field: "airConditioning", changeTypeFn: () => "metadata_change" },
-  { field: "daysOnMarket", changeTypeFn: () => "metadata_change" },
-  { field: "brokerName", changeTypeFn: () => "metadata_change" },
 ];
 
 export function diffListings(
