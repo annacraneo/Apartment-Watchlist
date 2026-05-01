@@ -486,7 +486,12 @@ export const GetSettingsResponse = zod.object({
   notifyOnPriceDrop: zod.boolean(),
   notifyOnStatusChange: zod.boolean(),
   notifyOnUnavailable: zod.boolean(),
-  llmProvider: zod.enum(["disabled", "ollama", "openai_compatible"]),
+  llmProvider: zod.enum([
+    "disabled",
+    "ollama",
+    "openrouter",
+    "openai_compatible",
+  ]),
   llmModel: zod.string().nullish(),
 });
 
@@ -504,7 +509,12 @@ export const UpdateSettingsBody = zod.object({
   notifyOnPriceDrop: zod.boolean(),
   notifyOnStatusChange: zod.boolean(),
   notifyOnUnavailable: zod.boolean(),
-  llmProvider: zod.enum(["disabled", "ollama", "openai_compatible"]),
+  llmProvider: zod.enum([
+    "disabled",
+    "ollama",
+    "openrouter",
+    "openai_compatible",
+  ]),
   llmModel: zod.string().nullish(),
 });
 
@@ -519,7 +529,12 @@ export const UpdateSettingsResponse = zod.object({
   notifyOnPriceDrop: zod.boolean(),
   notifyOnStatusChange: zod.boolean(),
   notifyOnUnavailable: zod.boolean(),
-  llmProvider: zod.enum(["disabled", "ollama", "openai_compatible"]),
+  llmProvider: zod.enum([
+    "disabled",
+    "ollama",
+    "openrouter",
+    "openai_compatible",
+  ]),
   llmModel: zod.string().nullish(),
 });
 

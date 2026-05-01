@@ -628,7 +628,11 @@ ${excerpt}`;
         signal: controller.signal,
       });
       clearTimeout(timeout);
-      if (!resp.ok) return null;
+      if (!resp.ok) {
+        const errBody = await resp.json().catch(() => ({})) as Record<string, unknown>;
+        logger.warn({ status: resp.status, err: errBody }, "LLM API returned error");
+        return null;
+      }
       const data = (await resp.json()) as {
         choices?: Array<{ message?: { content?: string } }>;
       };
@@ -659,7 +663,10 @@ ${excerpt}`;
         airConditioning: normalizeAirConditioning(typeof parsed["airConditioning"] === "string" ? parsed["airConditioning"] : null),
         parkingInfo: normalizeParking(typeof parsed["parkingInfo"] === "string" ? parsed["parkingInfo"] : null),
       };
-    } catch {
+    } catch (err: unknown) {
+      const isAbort =
+        err instanceof Error && (err.name === "AbortError" || err.message?.includes("abort"));
+      logger.warn({ err: String(err), isTimeout: isAbort }, "LLM extract threw an exception");
       return null;
     }
   }
@@ -678,19 +685,26 @@ function resolveLlmRuntimeConfig(settings: Awaited<ReturnType<typeof getSettings
     };
   }
 
-  const apiKey = process.env["OPENAI_API_KEY"] || process.env["OPENROUTER_API_KEY"] || "";
+  if (settings.llmProvider === "openrouter") {
+    const apiKey = process.env["OPENROUTER_API_KEY"] || "";
+    if (!apiKey) return null;
+    return {
+      enabled: true,
+      provider: "openai_compatible",
+      baseUrl: "https://openrouter.ai/api/v1",
+      apiKey,
+      model: settings.llmModel || "google/gemma-3-12b-it:free",
+    };
+  }
+
+  const apiKey = process.env["OPENAI_API_KEY"] || "";
   if (!apiKey) return null;
   return {
     enabled: true,
     provider: "openai_compatible",
-    baseUrl:
-      process.env["OPENAI_BASE_URL"] ||
-      (process.env["OPENROUTER_API_KEY"] ? "https://openrouter.ai/api/v1" : "https://api.openai.com/v1"),
+    baseUrl: process.env["OPENAI_BASE_URL"] || "https://api.openai.com/v1",
     apiKey,
-    model:
-      settings.llmModel ||
-      process.env["OPENAI_MODEL"] ||
-      (process.env["OPENROUTER_API_KEY"] ? "openai/gpt-4o-mini" : "gpt-4o-mini"),
+    model: settings.llmModel || process.env["OPENAI_MODEL"] || "gpt-4o-mini",
   };
 }
 
@@ -710,15 +724,20 @@ async function scrapeRentGeneric(url: string): Promise<ScrapeResult> {
 
     // Always run LLM (if configured) on the full field set — it sees more context
     // than pure regex and can improve on heuristic results, not just fill gaps.
+    let llmFailReason = "";
     const llm = llmConfig
-      ? await llmExtractor.extract(cleaned, url, llmConfig)
+      ? await llmExtractor.extract(cleaned, url, llmConfig).catch((e: unknown) => {
+          llmFailReason = String(e);
+          return null;
+        })
       : null;
 
     const warnings: string[] = [];
     if (llm && llmConfig) {
       warnings.push(`Extraction engine: heuristic + ${llmConfig.provider}`);
     } else if (llmConfig && !llm) {
-      warnings.push("Extraction engine: heuristic (LLM unavailable or timed out)");
+      const reason = llmFailReason ? ` (${llmFailReason.slice(0, 80)})` : " (check server logs)";
+      warnings.push(`Extraction engine: heuristic (LLM unavailable or timed out${reason})`);
     } else {
       warnings.push("Extraction engine: heuristic only (LLM disabled)");
     }

@@ -39,7 +39,7 @@ const settingsSchema = z.object({
   notifyOnPriceDrop: z.boolean(),
   notifyOnStatusChange: z.boolean(),
   notifyOnUnavailable: z.boolean(),
-  llmProvider: z.enum(["disabled", "ollama", "openai_compatible"]),
+  llmProvider: z.enum(["disabled", "ollama", "openrouter", "openai_compatible"]),
   llmModel: z.string().optional(),
 });
 
@@ -48,38 +48,43 @@ export default function Settings() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
+  // Don't mount the form until settings are loaded so Select components
+  // get the correct value from the start (Radix Select ignores value prop changes after mount).
+  if (isLoading || !settings) {
+    return (
+      <div className="max-w-3xl mx-auto py-8 px-4 space-y-4">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-64 w-full" />
+        <Skeleton className="h-64 w-full" />
+      </div>
+    );
+  }
+
+  return <SettingsForm settings={settings} />;
+}
+
+function SettingsForm({
+  settings,
+}: {
+  settings: NonNullable<ReturnType<typeof useGetSettings>["data"]>;
+}) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
   const form = useForm<z.infer<typeof settingsSchema>>({
     resolver: zodResolver(settingsSchema),
     defaultValues: {
-      checkIntervalHours: 24,
-      extractionMode: "native",
-      browseAiApiKey: "",
-      browseAiRobotId: "",
-      browseAiWebhookSecret: "",
-      notifyOnPriceDrop: true,
-      notifyOnStatusChange: true,
-      notifyOnUnavailable: true,
-      llmProvider: "disabled",
-      llmModel: "qwen2.5:7b-instruct",
+      checkIntervalHours: settings.checkIntervalHours,
+      extractionMode: settings.extractionMode as "native" | "browse_ai",
+      browseAiApiKey: settings.browseAiApiKey || "",
+      browseAiRobotId: settings.browseAiRobotId || "",
+      browseAiWebhookSecret: settings.browseAiWebhookSecret || "",
+      notifyOnPriceDrop: settings.notifyOnPriceDrop,
+      notifyOnStatusChange: settings.notifyOnStatusChange,
+      notifyOnUnavailable: settings.notifyOnUnavailable,
+      llmProvider: settings.llmProvider ?? "disabled",
+      llmModel: settings.llmModel || "qwen2.5:7b-instruct",
     },
   });
-
-  React.useEffect(() => {
-    if (settings) {
-      form.reset({
-        checkIntervalHours: settings.checkIntervalHours,
-        extractionMode: settings.extractionMode as "native" | "browse_ai",
-        browseAiApiKey: settings.browseAiApiKey || "",
-        browseAiRobotId: settings.browseAiRobotId || "",
-        browseAiWebhookSecret: settings.browseAiWebhookSecret || "",
-        notifyOnPriceDrop: settings.notifyOnPriceDrop,
-        notifyOnStatusChange: settings.notifyOnStatusChange,
-        notifyOnUnavailable: settings.notifyOnUnavailable,
-        llmProvider: settings.llmProvider ?? "disabled",
-        llmModel: settings.llmModel || "qwen2.5:7b-instruct",
-      });
-    }
-  }, [settings, form]);
 
   const updateSettings = useUpdateSettings({
     mutation: {
@@ -109,9 +114,32 @@ export default function Settings() {
     updateSettings.mutate({ data: values });
   }
 
+  function onInvalid(errors: Record<string, unknown>) {
+    console.error("Settings form validation failed:", errors);
+    toast({ title: "Could not save — form has errors", description: Object.keys(errors).join(", "), variant: "destructive" });
+  }
+
   const watchedApiKey = form.watch("browseAiApiKey");
   const watchedRobotId = form.watch("browseAiRobotId");
   const watchedMode = form.watch("extractionMode");
+  const watchedProvider = form.watch("llmProvider");
+
+  // When provider changes (user interaction only), auto-fill a sensible model default
+  const prevProviderRef = React.useRef<string | undefined>(undefined);
+  React.useEffect(() => {
+    if (!watchedProvider) return;
+    if (prevProviderRef.current === watchedProvider) return;
+    // Only auto-fill when the user actively changes provider (not on initial load)
+    if (prevProviderRef.current !== undefined) {
+      const defaults: Record<string, string> = {
+        ollama: "qwen2.5:7b-instruct",
+        openrouter: "google/gemma-3-12b-it:free",
+        openai_compatible: "gpt-4o-mini",
+      };
+      if (defaults[watchedProvider]) form.setValue("llmModel", defaults[watchedProvider]);
+    }
+    prevProviderRef.current = watchedProvider;
+  }, [watchedProvider, form]);
 
   // Show Browse AI credentials panel if: global mode is browse_ai OR creds are already set
   const showBrowseAiPanel =
@@ -121,10 +149,6 @@ export default function Settings() {
     !!(settings?.browseAiApiKey) ||
     !!(settings?.browseAiRobotId);
 
-  if (isLoading) {
-    return <div className="p-6 container mx-auto max-w-4xl space-y-6"><Skeleton className="h-64 w-full" /></div>;
-  }
-
   return (
     <div className="flex-1 p-6 container mx-auto max-w-4xl space-y-6 pb-20">
       <div className="flex items-center gap-2 pb-4 border-b border-border">
@@ -133,7 +157,7 @@ export default function Settings() {
       </div>
 
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+        <form onSubmit={form.handleSubmit(onSubmit, onInvalid)} className="space-y-8">
           <Card>
             <CardHeader>
               <CardTitle>Extraction Engine</CardTitle>
@@ -188,7 +212,7 @@ export default function Settings() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Rent LLM Provider</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value ?? "disabled"} defaultValue="disabled">
+                      <Select onValueChange={field.onChange} value={field.value || "disabled"}>
                         <FormControl>
                           <SelectTrigger data-testid="select-llm-provider">
                             <SelectValue />
@@ -197,11 +221,15 @@ export default function Settings() {
                         <SelectContent>
                           <SelectItem value="disabled">Disabled (heuristic only)</SelectItem>
                           <SelectItem value="ollama">Ollama (Local)</SelectItem>
+                          <SelectItem value="openrouter">OpenRouter (Free / Cloud)</SelectItem>
                           <SelectItem value="openai_compatible">OpenAI-Compatible</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormDescription>
-                        Choose which LLM runtime is used for rent extraction when heuristics are low confidence.
+                        {watchedProvider === "ollama" && "Runs locally on your machine. Requires Ollama running at http://127.0.0.1:11434."}
+                        {watchedProvider === "openrouter" && "Free cloud models via OpenRouter. Requires OPENROUTER_API_KEY in your environment."}
+                        {watchedProvider === "openai_compatible" && "Any OpenAI-compatible API (OpenAI, custom endpoint). Requires OPENAI_API_KEY."}
+                        {(!watchedProvider || watchedProvider === "disabled") && "LLM is off — only heuristic regex extraction will run."}
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -210,24 +238,53 @@ export default function Settings() {
                 <FormField
                   control={form.control}
                   name="llmModel"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>LLM Model</FormLabel>
-                      <FormControl>
-                        <Input placeholder="qwen2.5:7b-instruct" {...field} data-testid="input-llm-model" />
-                      </FormControl>
-                      <FormDescription>
-                        For Ollama, use local model tag (recommended: qwen2.5:7b-instruct).
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                  render={({ field: modelField }) => {
+                    const provider = watchedProvider;
+                    const ollamaModels = ["qwen2.5:7b-instruct", "qwen2.5:3b-instruct", "llama3.2:3b", "mistral:7b"];
+                    const openrouterModels = [
+                      "google/gemma-3-12b-it:free",
+                      "google/gemma-4-31b-it:free",
+                      "meta-llama/llama-3.3-70b-instruct:free",
+                      "openai/gpt-oss-20b:free",
+                      "google/gemma-3-27b-it:free",
+                    ];
+                    const openaiModels = ["gpt-4o-mini", "gpt-4o", "gpt-3.5-turbo"];
+                    const modelOptions =
+                      provider === "ollama" ? ollamaModels :
+                      provider === "openrouter" ? openrouterModels :
+                      provider === "openai_compatible" ? openaiModels : [];
+
+                    if (provider === "disabled" || modelOptions.length === 0) return <></>;
+
+                    return (
+                      <FormItem>
+                        <FormLabel>LLM Model</FormLabel>
+                        <Select
+                          value={modelField.value ?? modelOptions[0]}
+                          onValueChange={modelField.onChange}
+                          data-testid="select-llm-model"
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select model" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {modelOptions.map((m) => (
+                              <SelectItem key={m} value={m}>{m}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormDescription>
+                          {provider === "openrouter" && "All listed models are free tier on OpenRouter."}
+                          {provider === "ollama" && "Make sure the model is pulled locally: ollama pull <model>"}
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    );
+                  }}
                 />
               </div>
-
-              <p className="text-sm text-muted-foreground">
-                Ollama local default endpoint is <code>http://127.0.0.1:11434/v1</code>. Ensure Ollama is running and the model is pulled.
-              </p>
 
               {/* Browse AI credentials — shown when mode is browse_ai OR when creds already exist */}
               {showBrowseAiPanel && (

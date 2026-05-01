@@ -12,5 +12,6 @@ export type AppSettingsLlmProvider =
 export const AppSettingsLlmProvider = {
   disabled: "disabled",
   ollama: "ollama",
+  openrouter: "openrouter",
   openai_compatible: "openai_compatible",
 } as const;

@@ -805,7 +805,7 @@ components:
           type: boolean
         llmProvider:
           type: string
-          enum: [disabled, ollama, openai_compatible]
+          enum: [disabled, ollama, openrouter, openai_compatible]
         llmModel:
           type: ["string", "null"]
       required:
