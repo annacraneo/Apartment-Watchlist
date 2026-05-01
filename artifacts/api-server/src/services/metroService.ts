@@ -1,4 +1,5 @@
 import { logger } from "../lib/logger.js";
+import { looksLikeStreetAddress } from "../parsers/shared.js";
 
 interface MetroStation {
   name: string;
@@ -284,7 +285,13 @@ export async function computeMetroProximity(
     if (!isNaN(latN) && !isNaN(lngN)) coords = { lat: latN, lng: lngN };
   }
 
+  // If we have no coordinates, only geocode when the address is a real street address.
+  // Bare city/postal-code strings (e.g. "Montreal, QC H2L 1T3") produce unreliable results.
   if (!coords && address) {
+    if (!looksLikeStreetAddress(address)) {
+      logger.info({ address }, "Skipping metro: address is not a street address");
+      return null;
+    }
     coords = await geocodeAddress(address, city, province, neighborhood);
   }
 

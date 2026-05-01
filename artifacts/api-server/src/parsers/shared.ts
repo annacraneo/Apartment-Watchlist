@@ -86,6 +86,41 @@ export function emptyNormalized(): NormalizedListing {
   };
 }
 
+/** Words that appear after numeric listing IDs in URL slugs — not street names. */
+const NON_STREET_START =
+  /^(?:apartment|appartement|unit|suite|listing|rent(?:al)?|location|for|available|disponible|condo|loft|studio|duplex|triplex|plex|property|home|house)\b/i;
+
+/** Needs a real street cue (Montreal-centric EN/FR). Avoids Kijiji-style "1736717117 Apartment For Rent" slugs. */
+const STREET_TYPE_HINT =
+  /\b(?:rue|avenue|ave\.?|boulevard|blvd\.?|street|\bst\b|st\.|road|rd\.?|drive|dr\.?|lane|ln\.?|chemin|place|pl\.?|crescent|cres\.?|court|ct\.?|impasse|route|way|terrace|terr\.?|square|walk|trail|parkway|circle|cir\.?|saint|sainte)\b/i;
+
+/**
+ * True only for a plausible civic street line (number + street name with type).
+ * Rejects city/postal-only, bare listing IDs, Kijiji slug junk, and "1736719117 → 17367 + 19917 …" splits.
+ */
+export function looksLikeStreetAddress(address: string): boolean {
+  const line = (address.trim().split(",")[0] ?? "").trim();
+  if (!line) return false;
+  // Bare listing ID / postal-ish digit blobs
+  if (/^\d{5,}$/.test(line)) return false;
+  // Need: civic number (1–5 digits; never 6+ digit fake "house numbers"), space, rest of line
+  const m = line.match(/^(\d{1,5}(?:-\d{1,5})?[A-Za-z]?)\s+(.+)$/);
+  if (!m) return false;
+  const civicMain = (m[1].replace(/[A-Za-z]$/, "").split("-")[0] ?? "").trim();
+  if (!/^\d+$/.test(civicMain)) return false;
+  if (civicMain.length > 5) return false;
+  const n = parseInt(civicMain, 10);
+  if (!Number.isFinite(n) || n < 1 || n > 99999) return false;
+
+  const rest = m[2].trim();
+  if (!/[A-Za-zÀ-ÿ]/.test(rest)) return false;
+  // Second cluster of digits = often a Kijiji ad id left in the slug/text
+  if (/^\d{5,}\b/.test(rest)) return false;
+  if (NON_STREET_START.test(rest)) return false;
+  if (!STREET_TYPE_HINT.test(rest)) return false;
+  return true;
+}
+
 export function normalizePrice(raw: string | null | undefined): string | null {
   if (!raw) return null;
   const cleaned = raw.replace(/[^0-9.]/g, "");

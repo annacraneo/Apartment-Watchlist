@@ -1,6 +1,6 @@
 import { logger } from "../lib/logger.js";
 import { parseHtml, parseGenericHtml, type NormalizedListing } from "../parsers/index.js";
-import { emptyNormalized } from "../parsers/shared.js";
+import { emptyNormalized, looksLikeStreetAddress } from "../parsers/shared.js";
 import { getBrowseAiSettings, fetchViaBrowseAi } from "./browseAI.js";
 import { getSettings } from "./settingsService.js";
 
@@ -136,7 +136,8 @@ function extractAddress(text: string, url: string): string | null {
     const parsed = new URL(url);
     const slug = parsed.pathname.split("/").filter(Boolean).pop() ?? "";
     if (/^\d/.test(slug) && slug.length > 5) {
-      return slug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()).trim();
+      const candidate = slug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()).trim();
+      if (looksLikeStreetAddress(candidate)) return candidate;
     }
   } catch { /* ignore */ }
   return null;
@@ -165,7 +166,8 @@ function normalizeAddress(raw: string | null | undefined): string | null {
   if (!cleaned) return null;
   // Keep the street-address portion only (drop borough/city/noise suffixes)
   const firstPart = cleaned.split(",")[0]?.trim() || cleaned;
-  return firstPart || null;
+  if (!firstPart || !looksLikeStreetAddress(firstPart)) return null;
+  return firstPart;
 }
 
 function detectFurnished(text: string): string | null {
@@ -464,8 +466,10 @@ class DefaultRentSchemaExtractor implements RentSchemaExtractor {
     if (!price) warnings.push("Price could not be confidently extracted.");
     const extractedAddress = extractAddress(cleanedText, url);
     const addressMatch = extractedAddress ? [extractedAddress] : null;
-    if (!addressMatch) warnings.push("Address could not be confidently extracted.");
     const generic = parseGenericHtml(html, "about:blank");
+    const rawAddr = addressMatch?.[0] ?? generic.address ?? null;
+    const normalizedAddr = normalizeAddress(rawAddr);
+    if (!normalizedAddr) warnings.push("Address could not be confidently extracted.");
     const bedrooms = extractBedrooms(cleanedText);
     const bathrooms = extractBathrooms(cleanedText);
     const squareFeet = extractSquareFeet(cleanedText);
@@ -474,7 +478,7 @@ class DefaultRentSchemaExtractor implements RentSchemaExtractor {
 
     const populatedCore = [
       price,
-      addressMatch?.[0],
+      normalizedAddr,
       bedrooms,
       bathrooms,
       squareFeet,
@@ -486,7 +490,7 @@ class DefaultRentSchemaExtractor implements RentSchemaExtractor {
 
     return {
       currentPrice: price ?? generic.currentPrice,
-      address: normalizeAddress(addressMatch?.[0] ?? generic.address ?? null),
+      address: normalizedAddr,
       neighborhood: normalizeNeighborhood(neighborhood ?? generic.neighborhood ?? null, cleanedText),
       bedrooms: bedrooms ?? generic.bedrooms ?? null,
       bathrooms: bathrooms ?? generic.bathrooms ?? null,
@@ -663,7 +667,13 @@ ${excerpt}`;
       return {
         title: typeof parsed["title"] === "string" ? parsed["title"] : null,
         currentPrice: typeof parsed["currentPrice"] === "string" ? parsed["currentPrice"] : null,
-        address: normalizeAddress(typeof parsed["address"] === "string" ? parsed["address"] : null),
+        address: normalizeAddress(
+          typeof parsed["address"] === "string"
+            ? parsed["address"]
+            : typeof parsed["address"] === "number"
+              ? String(parsed["address"])
+              : null,
+        ),
         neighborhood: normalizeNeighborhood(
           typeof parsed["neighborhood"] === "string" ? parsed["neighborhood"] : null,
           cleanedText,

@@ -529,6 +529,8 @@ export default function Home() {
     airConditioning: "",
     appliancesIncluded: "",
     notes: "",
+    nearestMetro: "",
+    walkingMinutes: "",
   });
   const [rentEditTouched, setRentEditTouched] = useState<Set<string>>(new Set());
 
@@ -772,6 +774,8 @@ export default function Home() {
       airConditioning: (listing.airConditioning || "").toLowerCase() === "yes" ? "yes" : (listing.airConditioning || "").toLowerCase() === "no" ? "no" : "",
       appliancesIncluded: listing.appliancesIncluded || "",
       notes: listing.notes || "",
+      nearestMetro: listing.nearestMetro || "",
+      walkingMinutes: listing.walkingMinutes != null ? String(listing.walkingMinutes) : "",
     });
   };
 
@@ -812,6 +816,12 @@ export default function Home() {
     if (rentEditTouched.has("airConditioning")) data.airConditioning = rentEditValues.airConditioning || null;
     if (rentEditTouched.has("appliancesIncluded")) data.appliancesIncluded = rentEditValues.appliancesIncluded || null;
     if (rentEditTouched.has("notes")) data.notes = rentEditValues.notes || null;
+    // Metro fields are not locked — user edits always win, but auto-recalc can still update them
+    if (rentEditTouched.has("nearestMetro")) data.nearestMetro = rentEditValues.nearestMetro || null;
+    if (rentEditTouched.has("walkingMinutes")) {
+      const mins = parseInt(rentEditValues.walkingMinutes, 10);
+      data.walkingMinutes = isNaN(mins) ? null : mins;
+    }
     updateListing.mutate({
       id: editingRentId,
       data,
@@ -1331,8 +1341,8 @@ export default function Home() {
                         <TableCell className="text-muted-foreground">{formatParking(listing.parkingInfo)}</TableCell>
 
                         {/* Metro */}
-                        <TableCell>
-                          {listing.nearestMetro ? (
+                        <TableCell className="p-2 align-middle">
+                          {(listing.nearestMetro ?? "").trim() ? (
                             <div className="flex flex-col leading-tight">
                               <span className="font-medium truncate max-w-[110px]">{listing.nearestMetro}</span>
                               <span className={`text-[10px] flex items-center gap-0.5 ${Number(listing.walkingMinutes) > 15 ? "text-amber-500" : "text-muted-foreground"}`}>
@@ -1340,7 +1350,14 @@ export default function Home() {
                                 {Number(listing.walkingMinutes) > 15 && <AlertCircle className="w-3.5 h-3.5" />}
                               </span>
                             </div>
-                          ) : "—"}
+                          ) : (
+                            <div
+                              className="rounded-md border-2 border-yellow-500/70 bg-yellow-500/25 px-2 py-2 text-center text-sm text-muted-foreground shadow-sm ring-1 ring-yellow-500/40 dark:bg-yellow-500/15 dark:border-yellow-400/60"
+                              title="No metro — add a full street address or set metro manually"
+                            >
+                              —
+                            </div>
+                          )}
                         </TableCell>
 
                         {isRentView ? (
@@ -1657,7 +1674,7 @@ export default function Home() {
                         </div>
 
                         {/* Metro */}
-                        {listing.nearestMetro && (
+                        {(listing.nearestMetro ?? "").trim() ? (
                           <div className="flex items-center gap-2 text-xs text-muted-foreground">
                             <Train className="w-3.5 h-3.5 flex-shrink-0 text-primary/70" />
                             <span className="font-medium text-foreground/80">{listing.nearestMetro}</span>
@@ -1665,6 +1682,11 @@ export default function Home() {
                               · {listing.walkingMinutes} min walk
                               {Number(listing.walkingMinutes) > 15 && <AlertCircle className="w-3.5 h-3.5" />}
                             </span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 text-xs rounded-md px-2 py-2 border-2 border-yellow-500/70 bg-yellow-500/25 text-muted-foreground shadow-sm ring-1 ring-yellow-500/40 dark:bg-yellow-500/15 dark:border-yellow-400/60">
+                            <Train className="w-3.5 h-3.5 flex-shrink-0 opacity-90 text-yellow-700 dark:text-yellow-400" />
+                            <span className="font-medium">Metro not set</span>
                           </div>
                         )}
 
@@ -1854,6 +1876,16 @@ export default function Home() {
                       <SelectItem value="No">No</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label>Nearest Metro</Label>
+                  <Input value={rentEditValues.nearestMetro} onChange={(e) => updateRentEditField("nearestMetro", e.target.value)} placeholder="e.g. Frontenac" />
+                </div>
+                <div className="space-y-1">
+                  <Label>Walking (min)</Label>
+                  <Input type="number" min={0} value={rentEditValues.walkingMinutes} onChange={(e) => updateRentEditField("walkingMinutes", e.target.value)} placeholder="e.g. 8" />
                 </div>
               </div>
               <div className="space-y-1">
